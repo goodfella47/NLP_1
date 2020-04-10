@@ -1,5 +1,11 @@
+from MEMM import MEMM
 import numpy as np
 from scipy import special
+
+file = 'train1.wtag'
+memm = MEMM()
+memm.fit(file)
+print(memm.words_tags_count_dict[('The', 'DT')])
 
 ##inference
 
@@ -22,6 +28,7 @@ def argmax(tupels,log_linear_model):
             max=temp
             argmax=tupl
     return argmax
+
 
 
 def max_prob(sentence,log_linear_model):
