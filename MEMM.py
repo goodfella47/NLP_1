@@ -3,19 +3,32 @@ from scipy import special
 from collections import OrderedDict
 
 
+prefixes = (('re','VB'),('dis','VB'),('over','VB'),('un','VB'),('mis','VB'),('out','VB'),
+            ('co','NN'),('sub','NN'),('un','JJ'),('im','JJ'),('in','JJ'),('ir','JJ'),
+            ('il','JJ'),('non','JJ'),('dis','JJ'))
+
+
+suffixes = (('ise','VB'),('ate','VB'),('fy','VB'),('en','VB'),('tion','NN'),('ity','NN'),
+            ('er','NN'),('ness','NN'),('ism','NN'),('ment','NN'),('ant','NN'),('ship','NN'),
+            ('age','NN'),('ery','NN'))
+
+
 class MEMM():
 
-    def __init__(self,):
+    def __init__(self):
         self.n_total_features = 0
         self.words_tags_count_dict = OrderedDict()
 
-    def fit(self,file_path):
+    def fit(self, file_path):
+        """
+            Fits the model on the data, ultimately finds the vector of weights
+            :param file_path: full path of the file to read
+                return vector of weights
+        """
         self.get_word_tag_pair_count(file_path)
 
-
-    def predict(self,file_path):
+    def predict(self, file_path):
         pass
-
 
     def get_word_tag_pair_count(self, file_path):
         """
@@ -33,9 +46,5 @@ class MEMM():
                         self.words_tags_count_dict[(cur_word, cur_tag)] = 1
                     else:
                         self.words_tags_count_dict[(cur_word, cur_tag)] += 1
-
-
-
-
-
+        self.n_total_features = len(self.words_tags_count_dict)
 
