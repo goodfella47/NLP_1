@@ -1,64 +1,46 @@
 import numpy as np
 from scipy import special
 
-a = 2
-print(a)
+##inference
 
-## hello corona!!!
+def find_max(s,u,v,log_linear_model,word,observation):
+    max=0
+    argmax=s[0]
+    for t in s:
+        temp=observation[(t,u)][0]*log_linear_model[(t,u,v),word]
+        if temp>max:
+            max=temp
+            argmax=t
+    return max,argmax
 
-#
-# (                           )
-# |                           |
-# |                           |
-# |                           |___________
-# |                           |           |
-# |                           |________   |
-# |                           |        |  |
-# |                           |        |  |
-# |    ___________________    |        |  |
-# |---|S I E G B U R G E R|-dd|        |  |
-# |    "|B R A U H A U S|"    |        |  |
-# |      """""""""""""""      |        |  |
-# |          ._- -_,          |        |  |
-# |        .:8:   :8:.        |        |  |
-# |       :8:`  _  ':8:       |        |  |
-# |       "`  C B    '"       |        |  |
-# |          C\" (            |        |  |
-# |           \_ |            |        :  :
-# |            /__\           |        :  :
-# |    ___   ,//  \\   ___    |       :  :
-# |    :  \  ""  ,//  /  :    |       :  :
-# |     \  `._   ""_.'  /     |      :  :
-# |      `.   """""   ,'      |     /  /
-# |        `-._____,-'        |    /  /
-# |                           |   /  /
-# |____        ____        ___|  /  /
-# |____\      /____\      /___| /  /
-# |    ||    ||    ||    ||   |"  /
-# |    ||    ||    ||    ||   |  /
-# |    ||    ||    ||    ||   | /
-# |    ||    ||    ||    ||   |/
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |    ||    ||    ||    ||   |
-# |____||    ||____||    ||___|
-# |____/      \____/      \___|
-# \\_________________________//
-# /                           \
-# \___________________________/
+
+def argmax(tupels,log_linear_model):
+    max=0
+    for tuple in tupels:
+        temp=tupels[tuple]
+        if temp>max:
+            max=temp
+            argmax=tupl
+    return argmax
+
+
+def max_prob(sentence,log_linear_model):
+    observations=[]
+    s=[]
+    T=[]
+    for index,word in enumerate(sentence):
+        d={}
+        for v in s[index]:
+            for u in s[index-1]:
+                d[(u, v)] =find_max(s[index-2],u,v,log_linear_model,word,observations[index-1])
+        observations[index] = insert(d)
+    T[index-1],T[index]=argmax(observations[index], log_linear_model)
+    i = len(sentecne) - 3
+    while i>=0:
+        T[i]=observations[i+2][(T[i+1],T[i+2])]
+        i=i-1
+    return T
+
+
+
 
