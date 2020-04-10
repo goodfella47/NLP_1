@@ -3,14 +3,6 @@ from scipy import special
 from collections import OrderedDict
 
 
-prefixes = (('re','VB'),('dis','VB'),('over','VB'),('un','VB'),('mis','VB'),('out','VB'),
-            ('co','NN'),('sub','NN'),('un','JJ'),('im','JJ'),('in','JJ'),('ir','JJ'),
-            ('il','JJ'),('non','JJ'),('dis','JJ'))
-
-
-suffixes = (('ise','VB'),('ate','VB'),('fy','VB'),('en','VB'),('tion','NN'),('ity','NN'),
-            ('er','NN'),('ness','NN'),('ism','NN'),('ment','NN'),('ant','NN'),('ship','NN'),
-            ('age','NN'),('ery','NN'))
 
 
 class MEMM():
@@ -48,3 +40,15 @@ class MEMM():
                         self.words_tags_count_dict[(cur_word, cur_tag)] += 1
         self.n_total_features = len(self.words_tags_count_dict)
 
+
+
+    prefixes = (('re', 'VB'), ('dis', 'VB'), ('over', 'VB'), ('un', 'VB'), ('mis', 'VB'), ('out', 'VB'),
+                ('co', 'NN'), ('sub', 'NN'), ('un', 'JJ'), ('im', 'JJ'), ('in', 'JJ'), ('ir', 'JJ'),
+                ('il', 'JJ'), ('non', 'JJ'), ('dis', 'JJ'))
+
+    suffixes = (('ise', 'VB'), ('ate', 'VB'), ('fy', 'VB'), ('en', 'VB'), ('tion', 'NN'), ('ity', 'NN'),
+                ('er', 'NN'), ('ness', 'NN'), ('ism', 'NN'), ('ment', 'NN'), ('ant', 'NN'), ('ship', 'NN'),
+                ('age', 'NN'), ('ery', 'NN'))
+
+    prefixes_dict = dict(prefixes)
+    suffixes_dict = dict(suffixes)
