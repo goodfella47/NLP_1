@@ -3,21 +3,11 @@ from scipy import special
 from collections import OrderedDict
 
 
-prefixes = (('re','VB'),('dis','VB'),('over','VB'),('un','VB'),('mis','VB'),('out','VB'),
-            ('co','NN'),('sub','NN'),('un','JJ'),('im','JJ'),('in','JJ'),('ir','JJ'),
-            ('il','JJ'),('non','JJ'),('dis','JJ'))
-
-
-suffixes = (('ise','VB'),('ate','VB'),('fy','VB'),('en','VB'),('tion','NN'),('ity','NN'),
-            ('er','NN'),('ness','NN'),('ism','NN'),('ment','NN'),('ant','NN'),('ship','NN'),
-            ('age','NN'),('ery','NN'))
-
-
 class MEMM():
 
     def __init__(self):
-        self.n_total_features = 0
-        self.words_tags_count_dict = OrderedDict()
+        self.v = []
+        self.features = MEMM_features()
 
     def fit(self, file_path):
         """
@@ -25,27 +15,99 @@ class MEMM():
             :param file_path: full path of the file to read
                 return vector of weights
         """
-        self.get_word_tag_pair_count(file_path)
+        self.features.get_feature_statistics(file_path)
 
     def predict(self, file_path):
-        pass
+        assert (self.v)
 
-    def get_word_tag_pair_count(self, file_path):
+
+class MEMM_features():
+
+    def __init__(self):
+        self.n_total_features = 0
+        self.f100_index = self.f101_index = self.f102_index = self.f103_index = self.f104_index = self.f105_index = {}
+        self.f_indexes = {100: self.f100_index, 101: self.f101_index, 102: self.f102_index, 103: self.f103_index,
+                          104: self.f104_index, 105: self.f105_index}
+        self.f100_stats = self.f101_stats = self.f102_stats = self.f103_stats = self.f104_stats = self.f105_stats = {}
+        self.f_stats = {100: self.f100_stats, 101: self.f101_stats, 102: self.f102_stats, 103: self.f103_stats,
+                        104: self.f104_stats, 105: self.f105_stats}
+
+    def get_feature_statistics(self, file_path):
+        self.f100_stats = self.get_f100_stats(file_path)
+        self.f101_stats = self.get_f101_stats(file_path)
+        self.f102_stats = self.get_f102_stats(file_path)
+        # self.f103_stats = self.get_f103_stats(file_path)
+        # self.f104_stats = self.get_f104_stats(file_path)
+        # self.f105_stats = self.get_f105_stats(file_path)
+
+    def get_f100_stats(self, file_path):
         """
             Extract out of text all word/tag pairs
             :param file_path: full path of the file to read
                 return all word/tag pairs with index of appearance
         """
+        words_tags_count_dict = {}
+
         with open(file_path) as f:
             for line in f:
                 words = line.split(' ')
                 del words[-1]  # delete "." in end of sentence
                 for word_idx in range(len(words)):
                     cur_word, cur_tag = words[word_idx].split('_')
-                    if (cur_word, cur_tag) not in self.words_tags_count_dict:
-                        self.words_tags_count_dict[(cur_word, cur_tag)] = 1
+                    if (cur_word, cur_tag) not in words_tags_count_dict:
+                        words_tags_count_dict[(cur_word, cur_tag)] = 1
                     else:
-                        self.words_tags_count_dict[(cur_word, cur_tag)] += 1
-        self.n_total_features = len(self.words_tags_count_dict)
+                        words_tags_count_dict[(cur_word, cur_tag)] += 1
+        return words_tags_count_dict
+
+    def get_f101_stats(self, file_path):
+
+        prefix_count_dict = {}
+
+        with open(file_path) as f:
+            for line in f:
+                words = line.split(' ')
+                del words[-1]  # delete "." in end of sentence
+                for word_idx in range(len(words)):
+                    cur_word, cur_tag = words[word_idx].split('_')
+                    for prefix in prefixes_dict.keys():
+                        if cur_word.lower().startswith(prefix) and cur_tag.startswith(prefixes_dict[prefix]):
+                            if (prefix, prefixes_dict[prefix]) not in prefix_count_dict:
+                                prefix_count_dict[(prefix, prefixes_dict[prefix])] = 1
+                            else:
+                                prefix_count_dict[(prefix, prefixes_dict[prefix])] += 1
+        return prefix_count_dict
+
+    def get_f102_stats(self, file_path):
+
+        suffix_count_dict = {}
+
+        with open(file_path) as f:
+            for line in f:
+                words = line.split(' ')
+                del words[-1]  # delete "." in end of sentence
+                for word_idx in range(len(words)):
+                    cur_word, cur_tag = words[word_idx].split('_')
+                    for suffix in suffixes_dict.keys():
+                        if cur_word.lower().endswith(suffix) and cur_tag.startswith(suffixes_dict[suffix]):
+                            if (suffix, suffixes_dict[suffix]) not in suffix_count_dict:
+                                suffix_count_dict[(suffix, suffixes_dict[suffix])] = 1
+                            else:
+                                suffix_count_dict[(suffix, suffixes_dict[suffix])] += 1
+        return suffix_count_dict
 
 
+# %%
+prefixes = (('re', 'VB'), ('dis', 'VB'), ('over', 'VB'), ('un', 'VB'), ('mis', 'VB'), ('out', 'VB'),
+            ('co', 'NN'), ('sub', 'NN'), ('un', 'JJ'), ('im', 'JJ'), ('in', 'JJ'), ('ir', 'JJ'),
+            ('il', 'JJ'), ('non', 'JJ'), ('dis', 'JJ'))
+
+prefixes_dict = dict(prefixes)
+
+suffixes = (('ise', 'VB'), ('ate', 'VB'), ('fy', 'VB'), ('en', 'VB'), ('tion', 'NN'), ('ity', 'NN'),
+            ('er', 'NN'), ('ness', 'NN'), ('ism', 'NN'), ('ment', 'NN'), ('ant', 'NN'), ('ship', 'NN'),
+            ('age', 'NN'), ('ery', 'NN'))
+
+suffixes_dict = dict(suffixes)
+
+# %%
