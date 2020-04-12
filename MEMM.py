@@ -60,9 +60,10 @@ class MEMM_features():
                 del words[-1]  # delete "." in end of sentence
                 for word_idx in range(len(words)):
                     cur_word, cur_tag = words[word_idx].split('_')
-                    words_tags_count_dict[(cur_word, cur_tag)] = 1
-                else:
-                    words_tags_count_dict[(cur_word, cur_tag)] += 1
+                    if (cur_word, cur_tag) not in words_tags_count_dict.keys():
+                        words_tags_count_dict[(cur_word, cur_tag)] = 1
+                    else:
+                        words_tags_count_dict[(cur_word, cur_tag)] += 1
         return words_tags_count_dict
 
     def get_f101_stats(self, file_path):
