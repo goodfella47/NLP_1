@@ -7,6 +7,8 @@ memm = MEMM()
 memm.fit(file)
 print(memm.words_tags_count_dict[('The', 'DT')])
 
+
+
 ##inference
 
 

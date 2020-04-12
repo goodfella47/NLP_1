@@ -45,7 +45,7 @@ class MEMM_features():
         self.f100_stats = self.get_f100_stats(file_path)
         self.f101_stats = self.get_f101_stats(file_path)
         self.f102_stats = self.get_f102_stats(file_path)
-        # self.f103_stats = self.get_f103_stats(file_path)
+        self.f103_stats = self.get_f103_stats(file_path)
         # self.f104_stats = self.get_f104_stats(file_path)
         # self.f105_stats = self.get_f105_stats(file_path)
 
@@ -99,6 +99,23 @@ class MEMM_features():
                             else:
                                 suffix_count_dict[(suffix, suffixes_dict[suffix])] += 1
         return suffix_count_dict
+
+    def get_f103_stats(self, file_path):
+
+        trigram_tags_count_dict = {}
+        #%%
+        file_path = 'train1.wtag'
+        with open(file_path) as f:
+            for line in f:
+                words = line.split(' ')
+                del words[-1]  # delete "." in end of sentence
+                tags = [i.split('_')[1] for i in words]
+                tags.insert(0, '*')
+                tags.insert(0, '*')
+                tags.append('STOP')
+                print(tags)
+        #%%
+
 
 
 # %%
