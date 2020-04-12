@@ -2,15 +2,19 @@ from MEMM import MEMM
 import numpy as np
 from scipy import special
 
+
+#%%
 file = 'train1.wtag'
 memm = MEMM()
 memm.fit(file)
-print(memm.words_tags_count_dict[('The', 'DT')])
+print(memm.features.f100_stats)
+
+#%%
+
 
 
 
 ##inference
-
 
 # def find_max(s,u,v,log_linear_model,word,observation):
 #     max=0
@@ -51,3 +55,6 @@ print(memm.words_tags_count_dict[('The', 'DT')])
 #         i=i-1
 #     return T
 #
+
+
+

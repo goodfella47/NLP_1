@@ -46,8 +46,13 @@ class MEMM_features():
         self.f101_stats = self.get_f101_stats(file_path)
         self.f102_stats = self.get_f102_stats(file_path)
         self.f103_stats = self.get_f103_stats(file_path)
-        # self.f104_stats = self.get_f104_stats(file_path)
-        # self.f105_stats = self.get_f105_stats(file_path)
+        self.f104_stats = self.get_f104_stats(file_path)
+        self.f105_stats = self.get_f105_stats(file_path)
+
+    def get_feature_indices(self, threshold=None):
+        if (threshold):
+            for f in self.f_indexes.values():
+
 
     def get_f100_stats(self, file_path):
         """
@@ -103,7 +108,7 @@ class MEMM_features():
     def get_f103_stats(self, file_path):
 
         trigram_tags_count_dict = {}
-        #%%
+
         file_path = 'train1.wtag'
         with open(file_path) as f:
             for line in f:
@@ -113,8 +118,52 @@ class MEMM_features():
                 tags.insert(0, '*')
                 tags.insert(0, '*')
                 tags.append('STOP')
-                print(tags)
-        #%%
+                for i,_ in enumerate(tags[:-2]):
+                    if (tags[i],tags[i+1],tags[i+2]) not in trigram_tags_count_dict:
+                        trigram_tags_count_dict[(tags[i],tags[i+1],tags[i+2])] = 1
+                    else:
+                        trigram_tags_count_dict[(tags[i],tags[i+1],tags[i+2])] += 1
+
+    def get_f104_stats(self, file_path):
+
+        bigram_tags_count_dict = {}
+
+        file_path = 'train1.wtag'
+        with open(file_path) as f:
+            for line in f:
+                words = line.split(' ')
+                del words[-1]  # delete "." in end of sentence
+                tags = [i.split('_')[1] for i in words]
+                tags.insert(0, '*')
+                tags.insert(0, '*')
+                tags.append('STOP')
+                for i, _ in enumerate(tags[:-1]):
+                    if (tags[i], tags[i + 1]) not in bigram_tags_count_dict:
+                        bigram_tags_count_dict[(tags[i], tags[i + 1])] = 1
+                    else:
+                        bigram_tags_count_dict[(tags[i], tags[i + 1])] += 1
+        print(len(bigram_tags_count_dict))
+
+    def get_f105_stats(self, file_path):
+
+        unigram_tags_count_dict = {}
+
+        with open(file_path) as f:
+            for line in f:
+                words = line.split(' ')
+                del words[-1]  # delete "." in end of sentence
+                tags = [i.split('_')[1] for i in words]
+                tags.insert(0, '*')
+                tags.insert(0, '*')
+                tags.append('STOP')
+                for i, _ in enumerate(tags):
+                    if (tags[i]) not in unigram_tags_count_dict:
+                        unigram_tags_count_dict[(tags[i])] = 1
+                    else:
+                        unigram_tags_count_dict[(tags[i])] += 1
+        print(unigram_tags_count_dict)
+
+
 
 
 
