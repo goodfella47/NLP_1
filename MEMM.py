@@ -9,14 +9,14 @@ class MEMM():
         self.v = []
         self.features = MEMM_features()
 
-
-    def fit(self, file_path):
+    def fit(self, file_path, threshold=None):
         """
             Fits the model on the data, ultimately finds the vector of weights
             :param file_path: full path of the file to read
                 return vector of weights
         """
         self.features.get_feature_statistics(file_path)
+        self.features.get_feature_indices(threshold)
 
     def predict(self, file_path):
         assert (self.v)
@@ -26,25 +26,34 @@ class MEMM_features():
 
     def __init__(self):
         self.n_total_features = 0
-        self.f100_index = self.f101_index = self.f102_index = self.f103_index = self.f104_index = self.f105_index = {}
-        self.f_indexes = {100: self.f100_index, 101: self.f101_index, 102: self.f102_index, 103: self.f103_index,
-                          104: self.f104_index, 105: self.f105_index}
-        self.f100_stats = self.f101_stats = self.f102_stats = self.f103_stats = self.f104_stats = self.f105_stats = {}
-        self.f_stats = {100: self.f100_stats, 101: self.f101_stats, 102: self.f102_stats, 103: self.f103_stats,
-                        104: self.f104_stats, 105: self.f105_stats}
+        self.f_indexes = {}
+        self.f_statistics = {}
 
     def get_feature_statistics(self, file_path):
-        self.f100_stats = self.get_f100_stats(file_path)
-        self.f101_stats = self.get_f101_stats(file_path)
-        self.f102_stats = self.get_f102_stats(file_path)
-        self.f103_stats = self.get_f103_stats(file_path)
-        self.f104_stats = self.get_f104_stats(file_path)
-        self.f105_stats = self.get_f105_stats(file_path)
+        f100_stats = self.get_f100_stats(file_path)
+        f101_stats = self.get_f101_stats(file_path)
+        f102_stats = self.get_f102_stats(file_path)
+        f103_stats = self.get_f103_stats(file_path)
+        f104_stats = self.get_f104_stats(file_path)
+        f105_stats = self.get_f105_stats(file_path)
+        self.f_statistics = {100: f100_stats, 101: f101_stats, 102: f102_stats, 103: f103_stats,
+                             104: f104_stats, 105: f105_stats}
 
-    # def get_feature_indices(self, threshold=None):
-    #     if (threshold):
-    #         for f in self.f_indexes.values():
+    def get_feature_indices(self, threshold=None):
 
+        if (threshold is not None):
+            for i, f_stats in self.f_statistics.items():
+                f = {k: v for (k, v) in f_stats.items() if v > threshold}
+                self.f_statistics[i] = f
+
+        current_length = 0
+        for i, f_index in self.f_statistics.items():
+            f_index_dict = dict.fromkeys(f_index.keys(), 0)
+            f_index_dict.update(zip(f_index_dict, range(current_length,len(f_index_dict)+current_length)))
+            current_length += len(f_index_dict)
+            self.f_indexes[i] = f_index_dict
+
+        self.n_total_features = current_length+1
 
     def get_f100_stats(self, file_path):
         """
@@ -114,11 +123,12 @@ class MEMM_features():
                 tags.insert(0, '*')
                 tags.insert(0, '*')
                 tags.append('STOP')
-                for i,_ in enumerate(tags[:-2]):
-                    if (tags[i],tags[i+1],tags[i+2]) not in trigram_tags_count_dict:
-                        trigram_tags_count_dict[(tags[i],tags[i+1],tags[i+2])] = 1
+                for i, _ in enumerate(tags[:-2]):
+                    if (tags[i], tags[i + 1], tags[i + 2]) not in trigram_tags_count_dict:
+                        trigram_tags_count_dict[(tags[i], tags[i + 1], tags[i + 2])] = 1
                     else:
-                        trigram_tags_count_dict[(tags[i],tags[i+1],tags[i+2])] += 1
+                        trigram_tags_count_dict[(tags[i], tags[i + 1], tags[i + 2])] += 1
+            return trigram_tags_count_dict
 
     def get_f104_stats(self, file_path):
 
@@ -137,7 +147,8 @@ class MEMM_features():
                         bigram_tags_count_dict[(tags[i], tags[i + 1])] = 1
                     else:
                         bigram_tags_count_dict[(tags[i], tags[i + 1])] += 1
-        print(len(bigram_tags_count_dict))
+
+        return bigram_tags_count_dict
 
     def get_f105_stats(self, file_path):
 
@@ -156,10 +167,8 @@ class MEMM_features():
                         unigram_tags_count_dict[(tags[i])] = 1
                     else:
                         unigram_tags_count_dict[(tags[i])] += 1
-        print(unigram_tags_count_dict)
 
-
-
+        return unigram_tags_count_dict
 
 
 # %%
