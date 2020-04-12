@@ -8,6 +8,14 @@ class MEMM():
     def __init__(self):
         self.v = []
         self.features = MEMM_features()
+        self.tag_sentences=[]
+
+    def open_file(self,file_path):
+        with open(file_path) as f:
+            for line in f:
+                words = line.split(' ')
+                del words[-1]  # delete "." in end of sentence
+                tag_sentences.append(words)
 
     def fit(self, file_path):
         """
@@ -15,6 +23,7 @@ class MEMM():
             :param file_path: full path of the file to read
                 return vector of weights
         """
+        self.open_file(file_path)
         self.features.get_feature_statistics(file_path)
 
     def predict(self, file_path):
@@ -48,16 +57,11 @@ class MEMM_features():
         """
         words_tags_count_dict = {}
 
-        with open(file_path) as f:
-            for line in f:
-                words = line.split(' ')
-                del words[-1]  # delete "." in end of sentence
-                for word_idx in range(len(words)):
-                    cur_word, cur_tag = words[word_idx].split('_')
-                    if (cur_word, cur_tag) not in words_tags_count_dict:
-                        words_tags_count_dict[(cur_word, cur_tag)] = 1
-                    else:
-                        words_tags_count_dict[(cur_word, cur_tag)] += 1
+        for tuple in tag_words:
+            if tuple not in words_tags_count_dict:
+                words_tags_count_dict[tuple] = 1
+            else:
+                words_tags_count_dict[tuple] += 1
         return words_tags_count_dict
 
     def get_f101_stats(self, file_path):
