@@ -48,3 +48,4 @@ class MEMM():
                         self.words_tags_count_dict[(cur_word, cur_tag)] += 1
         self.n_total_features = len(self.words_tags_count_dict)
 
+
