@@ -15,7 +15,9 @@ class MEMM():
             :param file_path: full path of the file to read
                 return vector of weights
         """
-        self.features.get_feature_statistics(file_path)
+        with open(file_path) as file:
+            data = list(file)
+        self.features.get_feature_statistics(data)
         self.features.get_feature_indices(threshold)
         self.initialize_v()
 
@@ -25,13 +27,20 @@ class MEMM():
     def initialize_v(self):
         self.v = np.random.rand(self.features.n_total_features) / 100
 
-    def history_generator(self, file_path):
-        with open(file_path) as f:
-            for line in f:
-                words = line.split(' ')
-                del words[-1]
-                for word_idx in range(len(words)):
-                    cur_word, cur_tag = words[word_idx].split('_')
+    def history_generator(self,file):
+        for line in file:
+            words = line.split(' ')
+            del words[-1]
+            words.insert(0, '_*')
+            words.insert(0, '_*')
+            words.append('_STOP')
+            for i,word_idx in enumerate(words[2:-1]):
+                word, ctag = word_idx.split('_')
+                pword , ptag = words[i+1].split('_')
+                ppword , pptag = words[i].split('_')
+                nword, ntag = words[i+3].split('_')
+                yield(word, pptag, ptag, ctag, nword, pword)
+
 
     # def linearTerm(self, file_path):
 
@@ -43,13 +52,13 @@ class MEMM_features():
         self.f_indexes = {}
         self.f_statistics = {}
 
-    def get_feature_statistics(self, file_path):
-        f100_stats = self.get_f100_stats(file_path)
-        f101_stats = self.get_f101_stats(file_path)
-        f102_stats = self.get_f102_stats(file_path)
-        f103_stats = self.get_f103_stats(file_path)
-        f104_stats = self.get_f104_stats(file_path)
-        f105_stats = self.get_f105_stats(file_path)
+    def get_feature_statistics(self, file):
+        f100_stats = self.get_f100_stats(file)
+        f101_stats = self.get_f101_stats(file)
+        f102_stats = self.get_f102_stats(file)
+        f103_stats = self.get_f103_stats(file)
+        f104_stats = self.get_f104_stats(file)
+        f105_stats = self.get_f105_stats(file)
         self.f_statistics = {100: f100_stats, 101: f101_stats, 102: f102_stats, 103: f103_stats,
                              104: f104_stats, 105: f105_stats}
 
@@ -69,118 +78,116 @@ class MEMM_features():
 
         self.n_total_features = current_length + 1
 
-    def get_f100_stats(self, file_path):
+    def get_f100_stats(self, file):
         """
             Extract out of text all word/tag pairs
-            :param file_path: full path of the file to read
+            :param file: full path of the file to read
                 return all word/tag pairs with index of appearance
         """
         words_tags_count_dict = {}
 
-        with open(file_path) as f:
-            for line in f:
-                words = line.split(' ')
-                del words[-1]
-                for word_idx in range(len(words)):
-                    cur_word, cur_tag = words[word_idx].split('_')
-                    if (cur_word, cur_tag) not in words_tags_count_dict.keys():
-                        words_tags_count_dict[(cur_word, cur_tag)] = 1
-                    else:
-                        words_tags_count_dict[(cur_word, cur_tag)] += 1
+
+        for line in file:
+            words = line.split(' ')
+            del words[-1]
+            for word_idx in range(len(words)):
+                cur_word, cur_tag = words[word_idx].split('_')
+                if (cur_word, cur_tag) not in words_tags_count_dict.keys():
+                    words_tags_count_dict[(cur_word, cur_tag)] = 1
+                else:
+                    words_tags_count_dict[(cur_word, cur_tag)] += 1
         return words_tags_count_dict
 
-    def get_f101_stats(self, file_path):
+    def get_f101_stats(self, file):
 
         prefix_count_dict = {}
 
-        with open(file_path) as f:
-            for line in f:
-                words = line.split(' ')
-                del words[-1]
-                for word_idx in range(len(words)):
-                    cur_word, cur_tag = words[word_idx].split('_')
-                    for prefix in prefixes_dict.keys():
-                        if cur_word.lower().startswith(prefix) and cur_tag.startswith(prefixes_dict[prefix]):
-                            if (prefix, prefixes_dict[prefix]) not in prefix_count_dict:
-                                prefix_count_dict[(prefix, prefixes_dict[prefix])] = 1
-                            else:
-                                prefix_count_dict[(prefix, prefixes_dict[prefix])] += 1
+
+        for line in file:
+            words = line.split(' ')
+            del words[-1]
+            for word_idx in range(len(words)):
+                cur_word, cur_tag = words[word_idx].split('_')
+                for prefix in prefixes_dict.keys():
+                    if cur_word.lower().startswith(prefix) and cur_tag.startswith(prefixes_dict[prefix]):
+                        if (prefix, prefixes_dict[prefix]) not in prefix_count_dict:
+                            prefix_count_dict[(prefix, prefixes_dict[prefix])] = 1
+                        else:
+                            prefix_count_dict[(prefix, prefixes_dict[prefix])] += 1
         return prefix_count_dict
 
-    def get_f102_stats(self, file_path):
+    def get_f102_stats(self, file):
 
         suffix_count_dict = {}
 
-        with open(file_path) as f:
-            for line in f:
-                words = line.split(' ')
-                del words[-1]
-                for word_idx in range(len(words)):
-                    cur_word, cur_tag = words[word_idx].split('_')
-                    for suffix in suffixes_dict.keys():
-                        if cur_word.lower().endswith(suffix) and cur_tag.startswith(suffixes_dict[suffix]):
-                            if (suffix, suffixes_dict[suffix]) not in suffix_count_dict:
-                                suffix_count_dict[(suffix, suffixes_dict[suffix])] = 1
-                            else:
-                                suffix_count_dict[(suffix, suffixes_dict[suffix])] += 1
+        for line in file:
+            words = line.split(' ')
+            del words[-1]
+            for word_idx in range(len(words)):
+                cur_word, cur_tag = words[word_idx].split('_')
+                for suffix in suffixes_dict.keys():
+                    if cur_word.lower().endswith(suffix) and cur_tag.startswith(suffixes_dict[suffix]):
+                        if (suffix, suffixes_dict[suffix]) not in suffix_count_dict:
+                            suffix_count_dict[(suffix, suffixes_dict[suffix])] = 1
+                        else:
+                            suffix_count_dict[(suffix, suffixes_dict[suffix])] += 1
         return suffix_count_dict
 
-    def get_f103_stats(self, file_path):
+    def get_f103_stats(self, file):
 
         trigram_tags_count_dict = {}
 
-        with open(file_path) as f:
-            for line in f:
-                words = line.split(' ')
-                del words[-1]
-                tags = [i.split('_')[1] for i in words]
-                tags.insert(0, '*')
-                tags.insert(0, '*')
-                tags.append('STOP')
-                for i, _ in enumerate(tags[:-2]):
-                    if (tags[i], tags[i + 1], tags[i + 2]) not in trigram_tags_count_dict:
-                        trigram_tags_count_dict[(tags[i], tags[i + 1], tags[i + 2])] = 1
-                    else:
-                        trigram_tags_count_dict[(tags[i], tags[i + 1], tags[i + 2])] += 1
-            return trigram_tags_count_dict
+        for line in file:
+            words = line.split(' ')
+            del words[-1]
+            tags = [i.split('_')[1] for i in words]
+            tags.insert(0, '*')
+            tags.insert(0, '*')
+            tags.append('STOP')
+            for i, _ in enumerate(tags[:-2]):
+                if (tags[i], tags[i + 1], tags[i + 2]) not in trigram_tags_count_dict:
+                    trigram_tags_count_dict[(tags[i], tags[i + 1], tags[i + 2])] = 1
+                else:
+                    trigram_tags_count_dict[(tags[i], tags[i + 1], tags[i + 2])] += 1
+        return trigram_tags_count_dict
 
-    def get_f104_stats(self, file_path):
+    def get_f104_stats(self, file):
 
         bigram_tags_count_dict = {}
 
-        with open(file_path) as f:
-            for line in f:
-                words = line.split(' ')
-                del words[-1]
-                tags = [i.split('_')[1] for i in words]
-                tags.insert(0, '*')
-                tags.insert(0, '*')
-                tags.append('STOP')
-                for i, _ in enumerate(tags[:-1]):
-                    if (tags[i], tags[i + 1]) not in bigram_tags_count_dict:
-                        bigram_tags_count_dict[(tags[i], tags[i + 1])] = 1
-                    else:
-                        bigram_tags_count_dict[(tags[i], tags[i + 1])] += 1
+
+        for line in file:
+            words = line.split(' ')
+            del words[-1]
+            tags = [i.split('_')[1] for i in words]
+            tags.insert(0, '*')
+            tags.insert(0, '*')
+            tags.append('STOP')
+            for i, _ in enumerate(tags[:-1]):
+                if (tags[i], tags[i + 1]) not in bigram_tags_count_dict:
+                    bigram_tags_count_dict[(tags[i], tags[i + 1])] = 1
+                else:
+                    bigram_tags_count_dict[(tags[i], tags[i + 1])] += 1
 
         return bigram_tags_count_dict
 
-    def get_f105_stats(self, file_path):
+    def get_f105_stats(self, file):
 
         unigram_tags_count_dict = {}
 
-        with open(file_path) as f:
-            for line in f:
-                words = line.split(' ')
-                del words[-1]
-                tags = [i.split('_')[1] for i in words]
-                tags.insert(0, '*')
-                tags.insert(0, '*')
-                tags.append('STOP')
-                for i, _ in enumerate(tags):
-                    if (tags[i]) not in unigram_tags_count_dict:
-                        unigram_tags_count_dict[(tags[i])] = 1
-                    else:
-                        unigram_tags_count_dict[(tags[i])] += 1
+
+        for line in file:
+            words = line.split(' ')
+            del words[-1]
+            tags = [i.split('_')[1] for i in words]
+            tags.insert(0, '*')
+            tags.insert(0, '*')
+            tags.append('STOP')
+            for i, _ in enumerate(tags):
+                if (tags[i]) not in unigram_tags_count_dict:
+                    unigram_tags_count_dict[(tags[i])] = 1
+                else:
+                    unigram_tags_count_dict[(tags[i])] += 1
 
         return unigram_tags_count_dict
 
