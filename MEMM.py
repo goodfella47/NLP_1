@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
-#from collections import OrderedDict
 
 
 class MEMM():
@@ -15,15 +14,15 @@ class MEMM():
             :param file_path: full path of the file to read
                 return vector of weights
         """
-        v0 = np.random.rand(self.features.n_total_features) / 100
         with open(file_path) as file:
             data = list(file)
         self.features.get_feature_statistics(data)
         self.features.get_feature_indices(threshold)
+        v0 = np.random.rand(self.features.n_total_features) / 100
 
         tags = list(self.features.f_indexes[105].keys())
         linear_coefficient = self.linear_coefficient_calc(data)
-        self.v = fmin_l_bfgs_b(func = self.likelihood_grad, x0 = v0, args = (file,linear_coefficient,1,tags))
+        self.v = fmin_l_bfgs_b(func = self.likelihood_grad, x0 = v0, args = (data,linear_coefficient,1,tags))
 
     def predict(self, file_path):
         assert (self.v)
@@ -60,11 +59,17 @@ class MEMM():
             inner_log = 0
             expectedInnerSum = 0
             for y in tags:
+                exp = 0
                 f = self.features.represent_input_with_features(history)
+                for i in f:
+                    exp += v[i]
+                exponent = np.exp(exp)
                 history[3] = y
-                exponent = np.exp(v.dot(f))
                 inner_log += exponent
-                expectedInnerSum += f*exponent
+                InnerSum = np.zeros(len(v))
+                for i in f:
+                    InnerSum[i]=exponent
+                expectedInnerSum += InnerSum
             normalization_term += np.log(inner_log)
             expectedCounts += expectedInnerSum/inner_log
         return (normalization_term,expectedCounts)
@@ -89,8 +94,6 @@ class MEMM():
         grad = empirical_counts - expected_counts - regularization_grad
 
         return (-1) * likelihood, (-1) * grad
-
-
 
 class MEMM_features():
 
