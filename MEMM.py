@@ -25,6 +25,14 @@ class MEMM():
     def initialize_v(self):
         self.v = np.random.rand(self.features.n_total_features) / 100
 
+    def history_generator(self, file_path):
+        with open(file_path) as f:
+            for line in f:
+                words = line.split(' ')
+                del words[-1]
+                for word_idx in range(len(words)):
+                    cur_word, cur_tag = words[word_idx].split('_')
+
     # def linearTerm(self, file_path):
 
 
@@ -72,7 +80,7 @@ class MEMM_features():
         with open(file_path) as f:
             for line in f:
                 words = line.split(' ')
-                del words[-1]  # delete "." in end of sentence
+                del words[-1]
                 for word_idx in range(len(words)):
                     cur_word, cur_tag = words[word_idx].split('_')
                     if (cur_word, cur_tag) not in words_tags_count_dict.keys():
@@ -88,7 +96,7 @@ class MEMM_features():
         with open(file_path) as f:
             for line in f:
                 words = line.split(' ')
-                del words[-1]  # delete "." in end of sentence
+                del words[-1]
                 for word_idx in range(len(words)):
                     cur_word, cur_tag = words[word_idx].split('_')
                     for prefix in prefixes_dict.keys():
@@ -106,7 +114,7 @@ class MEMM_features():
         with open(file_path) as f:
             for line in f:
                 words = line.split(' ')
-                del words[-1]  # delete "." in end of sentence
+                del words[-1]
                 for word_idx in range(len(words)):
                     cur_word, cur_tag = words[word_idx].split('_')
                     for suffix in suffixes_dict.keys():
@@ -124,7 +132,7 @@ class MEMM_features():
         with open(file_path) as f:
             for line in f:
                 words = line.split(' ')
-                del words[-1]  # delete "." in end of sentence
+                del words[-1]
                 tags = [i.split('_')[1] for i in words]
                 tags.insert(0, '*')
                 tags.insert(0, '*')
@@ -143,7 +151,7 @@ class MEMM_features():
         with open(file_path) as f:
             for line in f:
                 words = line.split(' ')
-                del words[-1]  # delete "." in end of sentence
+                del words[-1]
                 tags = [i.split('_')[1] for i in words]
                 tags.insert(0, '*')
                 tags.insert(0, '*')
@@ -163,7 +171,7 @@ class MEMM_features():
         with open(file_path) as f:
             for line in f:
                 words = line.split(' ')
-                del words[-1]  # delete "." in end of sentence
+                del words[-1]
                 tags = [i.split('_')[1] for i in words]
                 tags.insert(0, '*')
                 tags.insert(0, '*')
