@@ -1,6 +1,6 @@
 import numpy as np
-from scipy import special
-from collections import OrderedDict
+from scipy.optimize import fmin_l_bfgs_b
+#from collections import OrderedDict
 
 
 class MEMM():
@@ -9,28 +9,25 @@ class MEMM():
         self.v = []
         self.features = MEMM_features()
 
-
-
     def fit(self, file_path, threshold=None):
         """
             Fits the model on the data, ultimately finds the vector of weights
             :param file_path: full path of the file to read
                 return vector of weights
         """
+        v0 = np.random.rand(self.features.n_total_features) / 100
         with open(file_path) as file:
             data = list(file)
         self.features.get_feature_statistics(data)
         self.features.get_feature_indices(threshold)
 
         tags = list(self.features.f_indexes[105].keys())
-        self.initialize_v()
-        linear_coefficient = self.linearTerm(data)
+        linear_coefficient = self.linear_coefficient_calc(data)
+        self.v = fmin_l_bfgs_b(func = self.likelihood_grad, x0 = v0, args = (file,linear_coefficient,1,tags))
 
     def predict(self, file_path):
         assert (self.v)
 
-    def initialize_v(self):
-        self.v = np.random.rand(self.features.n_total_features) / 100
 
     def history_generator(self,file):
         for line in file:
@@ -55,17 +52,24 @@ class MEMM():
                 sum_f[i]+=1
         return sum_f
 
-    def normalization_term_calc(self,file,v,tags):
+    def normalization_term_and_expected_counts(self,file,v,tags):
         normalization_term = 0
         all_history = self.history_generator(file)
+        expectedCounts = 0
         for history in all_history:
             inner_log = 0
+            expectedInnerSum = 0
             for y in tags:
+                f = self.features.represent_input_with_features(history)
                 history[3] = y
-                inner_log += np.exp(v.dot(self.features.represent_input_with_features(history)))
+                exponent = np.exp(v.dot(f))
+                inner_log += exponent
+                expectedInnerSum += f*exponent
             normalization_term += np.log(inner_log)
+            expectedCounts += expectedInnerSum/inner_log
+        return (normalization_term,expectedCounts)
 
-    def calc_objective_per_iter(self,v,file,linear_coef,lamda,tags):
+    def likelihood_grad(self,v,file,linear_coef,lamda,tags):
         """
             Calculate max entropy likelihood for an iterative optimization method
             :param v_i: weights vector in iteration i
@@ -76,12 +80,11 @@ class MEMM():
 
         ## Calculate the terms required for the likelihood and gradient calculations
         linear_term = v.dot(linear_coef)
-        normalization_term = self.normalization_term_calc(file,v,tags)
+        normalization_term,expected_counts = self.normalization_term_and_expected_counts(file,v,tags)
+        regularization = 0.5*lamda*(v.dot(v))
+        empirical_counts = linear_coef
+        regularization_grad = lamda*v
 
-        regularization = 0
-        empirical_counts = 0
-        expected_counts = 0
-        regularization_grad = 0
         likelihood = linear_term - normalization_term - regularization
         grad = empirical_counts - expected_counts - regularization_grad
 
