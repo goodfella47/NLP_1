@@ -10,6 +10,7 @@ class MEMM():
         self.features = MEMM_features()
 
 
+
     def fit(self, file_path, threshold=None):
         """
             Fits the model on the data, ultimately finds the vector of weights
@@ -20,9 +21,10 @@ class MEMM():
             data = list(file)
         self.features.get_feature_statistics(data)
         self.features.get_feature_indices(threshold)
+
+        tags = list(self.features.f_indexes[105].keys())
         self.initialize_v()
-        linear_term = self.linearTerm(data)
-        print(linear_term)
+        linear_coefficient = self.linearTerm(data)
 
     def predict(self, file_path):
         assert (self.v)
@@ -42,9 +44,9 @@ class MEMM():
                 pword , ptag = words[i+1].split('_')
                 ppword , pptag = words[i].split('_')
                 nword, ntag = words[i+3].split('_')
-                yield(word, pptag, ptag, ctag, nword, pword)
+                yield([word, pptag, ptag, ctag, nword, pword])
 
-    def linearTerm(self, file):
+    def linear_coefficient_calc(self, file):
         sum_f = np.zeros(self.features.n_total_features)
         all_history = self.history_generator(file)
         for history in all_history:
@@ -52,6 +54,40 @@ class MEMM():
             for i in feature:
                 sum_f[i]+=1
         return sum_f
+
+    def normalization_term_calc(self,file,v,tags):
+        normalization_term = 0
+        all_history = self.history_generator(file)
+        for history in all_history:
+            inner_log = 0
+            for y in tags:
+                history[3] = y
+                inner_log += np.exp(v.dot(self.features.represent_input_with_features(history)))
+            normalization_term += np.log(inner_log)
+
+    def calc_objective_per_iter(self,v,file,linear_coef,lamda,tags):
+        """
+            Calculate max entropy likelihood for an iterative optimization method
+            :param v_i: weights vector in iteration i
+            :param arg_i: arguments passed to this function, such as lambda hyperparameter for regularization
+
+                The function returns the Max Entropy likelihood (objective) and the objective gradient
+        """
+
+        ## Calculate the terms required for the likelihood and gradient calculations
+        linear_term = v.dot(linear_coef)
+        normalization_term = self.normalization_term_calc(file,v,tags)
+
+        regularization = 0
+        empirical_counts = 0
+        expected_counts = 0
+        regularization_grad = 0
+        likelihood = linear_term - normalization_term - regularization
+        grad = empirical_counts - expected_counts - regularization_grad
+
+        return (-1) * likelihood, (-1) * grad
+
+
 
 class MEMM_features():
 
@@ -163,7 +199,6 @@ class MEMM_features():
 
         bigram_tags_count_dict = {}
 
-
         for line in file:
             words = line.split(' ')
             del words[-1]
@@ -182,7 +217,6 @@ class MEMM_features():
     def get_f105_stats(self, file):
 
         unigram_tags_count_dict = {}
-
 
         for line in file:
             words = line.split(' ')
@@ -255,24 +289,5 @@ suffixes = (('ise', 'VB'), ('ate', 'VB'), ('fy', 'VB'), ('en', 'VB'), ('tion', '
 suffixes_dict = dict(suffixes)
 
 
-# %%
-def calc_objective_per_iter(w_i, arg_1, arg_2):
-    """
-        Calculate max entropy likelihood for an iterative optimization method
-        :param w_i: weights vector in iteration i
-        :param arg_i: arguments passed to this function, such as lambda hyperparameter for regularization
 
-            The function returns the Max Entropy likelihood (objective) and the objective gradient
-    """
 
-    ## Calculate the terms required for the likelihood and gradient calculations
-    linear_term = 0
-    normalization_term = 0
-    regularization = 0
-    empirical_counts = 0
-    expected_counts = 0
-    regularization_grad = 0
-    likelihood = linear_term - normalization_term - regularization
-    grad = empirical_counts - expected_counts - regularization_grad
-
-    return (-1) * likelihood, (-1) * grad
