@@ -17,9 +17,15 @@ class MEMM():
         """
         self.features.get_feature_statistics(file_path)
         self.features.get_feature_indices(threshold)
+        self.initialize_v()
 
     def predict(self, file_path):
         assert (self.v)
+
+    def initialize_v(self):
+        self.v = np.random.rand(self.features.n_total_features) / 100
+
+    # def linearTerm(self, file_path):
 
 
 class MEMM_features():
@@ -49,11 +55,11 @@ class MEMM_features():
         current_length = 0
         for i, f_index in self.f_statistics.items():
             f_index_dict = dict.fromkeys(f_index.keys(), 0)
-            f_index_dict.update(zip(f_index_dict, range(current_length,len(f_index_dict)+current_length)))
+            f_index_dict.update(zip(f_index_dict, range(current_length, len(f_index_dict) + current_length)))
             current_length += len(f_index_dict)
             self.f_indexes[i] = f_index_dict
 
-        self.n_total_features = current_length+1
+        self.n_total_features = current_length + 1
 
     def get_f100_stats(self, file_path):
         """
@@ -170,8 +176,49 @@ class MEMM_features():
 
         return unigram_tags_count_dict
 
+    def represent_input_with_features(self, history):
+        """
+            Extract feature vector in per a given history
+            :param history: touple{word, pptag, ptag, ctag, nword, pword}
+            :param word_tags_dict: word\tag dict
+                Return a list with all features that are relevant to the given history
+        """
+        word, pptag, ptag, ctag, nword, pword, features = history
 
-# %%
+        # append features belonging to f100
+        if (word, ctag) in self.f_indexes[100]:
+            features.append(self.f_indexes[100][(word, ctag)])
+
+        # append features belonging to f101
+        for prefix in reversed(range(2, 5)):
+            prefix = word[:prefix].lower()
+            if (prefix, ctag) in self.f_indexes[101]:
+                features.append(self.f_indexes[101][(prefix, ctag)])
+                break
+
+        # append features belonging to f102
+        for suffix in reversed(range(2, 5)):
+            suffix = word[-suffix:].lower()
+            if (suffix, ctag) in self.f_indexes[102]:
+                features.append(self.f_indexes[102][(suffix, ctag)])
+                break
+
+        # append features belonging to f103
+        if (pptag,ptag,ctag) in self.f_indexes[103]:
+            features.append(self.f_indexes[103][(pptag,ptag,ctag)])
+
+        # append features belonging to f104
+        if (ptag,ctag) in self.f_indexes[104]:
+            features.append(self.f_indexes[104][(ptag,ctag)])
+
+        # append features belonging to f105
+        if (ctag) in self.f_indexes[105]:
+            features.append(self.f_indexes[105][(ctag)])
+
+
+        return features
+
+
 prefixes = (('re', 'VB'), ('dis', 'VB'), ('over', 'VB'), ('un', 'VB'), ('mis', 'VB'), ('out', 'VB'),
             ('co', 'NN'), ('sub', 'NN'), ('un', 'JJ'), ('im', 'JJ'), ('in', 'JJ'), ('ir', 'JJ'),
             ('il', 'JJ'), ('non', 'JJ'), ('dis', 'JJ'))
@@ -184,4 +231,25 @@ suffixes = (('ise', 'VB'), ('ate', 'VB'), ('fy', 'VB'), ('en', 'VB'), ('tion', '
 
 suffixes_dict = dict(suffixes)
 
+
 # %%
+def calc_objective_per_iter(w_i, arg_1, arg_2):
+    """
+        Calculate max entropy likelihood for an iterative optimization method
+        :param w_i: weights vector in iteration i
+        :param arg_i: arguments passed to this function, such as lambda hyperparameter for regularization
+
+            The function returns the Max Entropy likelihood (objective) and the objective gradient
+    """
+
+    ## Calculate the terms required for the likelihood and gradient calculations
+    linear_term = 0
+    normalization_term = 0
+    regularization = 0
+    empirical_counts = 0
+    expected_counts = 0
+    regularization_grad = 0
+    likelihood = linear_term - normalization_term - regularization
+    grad = empirical_counts - expected_counts - regularization_grad
+
+    return (-1) * likelihood, (-1) * grad
