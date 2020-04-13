@@ -9,6 +9,7 @@ class MEMM():
         self.v = []
         self.features = MEMM_features()
 
+
     def fit(self, file_path, threshold=None):
         """
             Fits the model on the data, ultimately finds the vector of weights
@@ -20,6 +21,8 @@ class MEMM():
         self.features.get_feature_statistics(data)
         self.features.get_feature_indices(threshold)
         self.initialize_v()
+        linear_term = self.linearTerm(data)
+        print(linear_term)
 
     def predict(self, file_path):
         assert (self.v)
@@ -41,9 +44,14 @@ class MEMM():
                 nword, ntag = words[i+3].split('_')
                 yield(word, pptag, ptag, ctag, nword, pword)
 
-
-    # def linearTerm(self, file_path):
-
+    def linearTerm(self, file):
+        sum_f = np.zeros(self.features.n_total_features)
+        all_history = self.history_generator(file)
+        for history in all_history:
+            feature = self.features.represent_input_with_features(history)
+            for i in feature:
+                sum_f[i]+=1
+        return sum_f
 
 class MEMM_features():
 
@@ -198,7 +206,8 @@ class MEMM_features():
             :param word_tags_dict: word\tag dict
                 Return a list with all features that are relevant to the given history
         """
-        word, pptag, ptag, ctag, nword, pword, features = history
+        features = []
+        word, pptag, ptag, ctag, nword, pword = history
 
         # append features belonging to f100
         if (word, ctag) in self.f_indexes[100]:
@@ -229,7 +238,6 @@ class MEMM_features():
         # append features belonging to f105
         if (ctag) in self.f_indexes[105]:
             features.append(self.f_indexes[105][(ctag)])
-
 
         return features
 
