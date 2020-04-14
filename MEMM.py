@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
+import time
+
 
 
 class MEMM():
@@ -19,14 +21,14 @@ class MEMM():
         self.features.get_feature_statistics(data)
         self.features.get_feature_indices(threshold)
         v0 = np.random.rand(self.features.n_total_features) / 100
-
         tags = list(self.features.f_indexes[105].keys())
         linear_coefficient = self.linear_coefficient_calc(data)
-        self.v = fmin_l_bfgs_b(func = self.likelihood_grad, x0 = v0, args = (data,linear_coefficient,1,tags))
+        args = (data,linear_coefficient,1,tags)
+        optimal_params = fmin_l_bfgs_b(func = self.likelihood_grad, x0 = v0, args = args, maxiter=100, iprint = 100)
+        self.v = optimal_params[0]
 
     def predict(self, file_path):
         assert (self.v)
-
 
     def history_generator(self,file):
         for line in file:
@@ -60,11 +62,11 @@ class MEMM():
             expectedInnerSum = 0
             for y in tags:
                 exp = 0
+                history[3] = y
                 f = self.features.represent_input_with_features(history)
                 for i in f:
                     exp += v[i]
                 exponent = np.exp(exp)
-                history[3] = y
                 inner_log += exponent
                 InnerSum = np.zeros(len(v))
                 for i in f:
@@ -85,14 +87,16 @@ class MEMM():
 
         ## Calculate the terms required for the likelihood and gradient calculations
         linear_term = v.dot(linear_coef)
+        start = time.time()
         normalization_term,expected_counts = self.normalization_term_and_expected_counts(file,v,tags)
+        end = time.time()
+        print('time=',(end - start)/60)
         regularization = 0.5*lamda*(v.dot(v))
         empirical_counts = linear_coef
         regularization_grad = lamda*v
-
         likelihood = linear_term - normalization_term - regularization
         grad = empirical_counts - expected_counts - regularization_grad
-
+        print('v=',v.dot(v))
         return (-1) * likelihood, (-1) * grad
 
 class MEMM_features():
@@ -136,7 +140,6 @@ class MEMM_features():
         """
         words_tags_count_dict = {}
 
-
         for line in file:
             words = line.split(' ')
             del words[-1]
@@ -151,7 +154,6 @@ class MEMM_features():
     def get_f101_stats(self, file):
 
         prefix_count_dict = {}
-
 
         for line in file:
             words = line.split(' ')

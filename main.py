@@ -6,8 +6,8 @@ from scipy import special
 #%%
 file = 'train1.wtag'
 memm = MEMM()
-memm.fit(file,3)
-print(len(memm.features.f_statistics[101]))
+memm.fit(file,5)
+print(memm.features.n_total_features)
 
 #%%
 
