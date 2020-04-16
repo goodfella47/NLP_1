@@ -22,15 +22,18 @@ class MEMM():
         self.features.get_feature_indices(threshold)
         v0 = np.random.rand(self.features.n_total_features) / 100
         tags = list(self.features.f_indexes[105].keys())
-        linear_coefficient = self.linear_coefficient_calc(data)
-        args = (data,linear_coefficient,1,tags)
+        history_dict, extended_history_dict = self.history_generator(data, tags)
+        linear_coefficient = self.linear_coefficient_calc(data,history_dict)
+        args = (data,linear_coefficient,1,tags,history_dict,extended_history_dict)
         optimal_params = fmin_l_bfgs_b(func = self.likelihood_grad, x0 = v0, args = args, maxiter=100, iprint = 100)
         self.v = optimal_params[0]
 
     def predict(self, file_path):
         assert (self.v)
 
-    def history_generator(self,file):
+    def history_generator(self,file,tags):
+        history_dict = {}
+        extended_history_dict = {}
         for line in file:
             words = line.split(' ')
             del words[-1]
@@ -42,28 +45,33 @@ class MEMM():
                 pword , ptag = words[i+1].split('_')
                 ppword , pptag = words[i].split('_')
                 nword, ntag = words[i+3].split('_')
-                yield([word, pptag, ptag, ctag, nword, pword])
+                history = (word, pptag, ptag, ctag, nword, pword)
+                f = self.features.represent_input_with_features(history)
+                if history not in history_dict.keys():
+                    history_dict[history] = f
+                    extended_history = []
+                    for y in tags:
+                        history = (word, pptag, ptag, y, nword, pword)
+                        f = self.features.represent_input_with_features(history)
+                        extended_history.append(f)
+                    extended_history_dict[history]=extended_history
+        return history_dict,extended_history_dict
 
-    def linear_coefficient_calc(self, file):
+    def linear_coefficient_calc(self, file,history_dict):
         sum_f = np.zeros(self.features.n_total_features)
-        all_history = self.history_generator(file)
-        for history in all_history:
-            feature = self.features.represent_input_with_features(history)
+        for _,feature in history_dict.items():
             for i in feature:
                 sum_f[i]+=1
         return sum_f
 
-    def normalization_term_and_expected_counts(self,file,v,tags):
+    def normalization_term_and_expected_counts(self,v,extended_history_dict):
         normalization_term = 0
-        all_history = self.history_generator(file)
         expectedCounts = 0
-        for history in all_history:
+        for history,features in extended_history_dict.items():
             inner_log = 0
             expectedInnerSum = 0
-            for y in tags:
+            for f in features:
                 exp = 0
-                history[3] = y
-                f = self.features.represent_input_with_features(history)
                 for i in f:
                     exp += v[i]
                 exponent = np.exp(exp)
@@ -73,10 +81,10 @@ class MEMM():
                     InnerSum[i]=exponent
                 expectedInnerSum += InnerSum
             normalization_term += np.log(inner_log)
-            expectedCounts += expectedInnerSum/inner_log
+            expectedCounts += expectedInnerSum / inner_log
         return (normalization_term,expectedCounts)
 
-    def likelihood_grad(self,v,file,linear_coef,lamda,tags):
+    def likelihood_grad(self,v,file,linear_coef,lamda,tags,history_dict,extended_history_dict):
         """
             Calculate max entropy likelihood for an iterative optimization method
             :param v_i: weights vector in iteration i
@@ -88,7 +96,7 @@ class MEMM():
         ## Calculate the terms required for the likelihood and gradient calculations
         linear_term = v.dot(linear_coef)
         start = time.time()
-        normalization_term,expected_counts = self.normalization_term_and_expected_counts(file,v,tags)
+        normalization_term,expected_counts = self.normalization_term_and_expected_counts(v,extended_history_dict)
         end = time.time()
         print('time=',(end - start)/60)
         regularization = 0.5*lamda*(v.dot(v))
@@ -97,6 +105,7 @@ class MEMM():
         likelihood = linear_term - normalization_term - regularization
         grad = empirical_counts - expected_counts - regularization_grad
         print('v=',v.dot(v))
+
         return (-1) * likelihood, (-1) * grad
 
 class MEMM_features():
