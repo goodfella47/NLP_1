@@ -3,11 +3,11 @@ from scipy.optimize import fmin_l_bfgs_b
 import time
 
 
-
 class MEMM():
 
     def __init__(self):
-        self.v = []
+        self.v = None
+        self.tags = []
         self.features = MEMM_features()
 
     def fit(self, file_path, threshold=None):
@@ -21,17 +21,17 @@ class MEMM():
         self.features.get_feature_statistics(data)
         self.features.get_feature_indices(threshold)
         v0 = np.random.rand(self.features.n_total_features) / 100
-        tags = list(self.features.f_indexes[105].keys())
-        history_dict, extended_history_dict = self.history_generator(data, tags)
-        linear_coefficient = self.linear_coefficient_calc(data,history_dict)
-        args = (data,linear_coefficient,1,tags,history_dict,extended_history_dict)
-        optimal_params = fmin_l_bfgs_b(func = self.likelihood_grad, x0 = v0, args = args, maxiter=100, iprint = 100)
+        self.tags = list(self.features.f_indexes[105].keys())
+        history_dict, extended_history_dict = self.history_generator(data)
+        linear_coefficient = self.linear_coefficient_calc(data, history_dict)
+        args = (data, linear_coefficient, 1, history_dict, extended_history_dict)
+        optimal_params = fmin_l_bfgs_b(func=self.likelihood_grad, x0=v0, args=args, maxiter=100, iprint=100)
         self.v = optimal_params[0]
 
     def predict(self, file_path):
         assert (self.v)
 
-    def history_generator(self,file,tags):
+    def history_generator(self, file):
         history_dict = {}
         extended_history_dict = {}
         for line in file:
@@ -40,51 +40,52 @@ class MEMM():
             words.insert(0, '_*')
             words.insert(0, '_*')
             words.append('_STOP')
-            for i,word_idx in enumerate(words[2:-1]):
+            for i, word_idx in enumerate(words[2:-1]):
                 word, ctag = word_idx.split('_')
-                pword , ptag = words[i+1].split('_')
-                ppword , pptag = words[i].split('_')
-                nword, ntag = words[i+3].split('_')
+                pword, ptag = words[i + 1].split('_')
+                ppword, pptag = words[i].split('_')
+                nword, ntag = words[i + 3].split('_')
                 history = (word, pptag, ptag, ctag, nword, pword)
                 f = self.features.represent_input_with_features(history)
                 if history not in history_dict.keys():
                     history_dict[history] = f
                     extended_history = []
-                    for y in tags:
+                    for y in self.tags:
                         history = (word, pptag, ptag, y, nword, pword)
                         f = self.features.represent_input_with_features(history)
                         extended_history.append(f)
-                    extended_history_dict[history]=extended_history
-        return history_dict,extended_history_dict
+                    extended_history_dict[history] = extended_history
+        return history_dict, extended_history_dict
 
-    def linear_coefficient_calc(self, file,history_dict):
+    def linear_coefficient_calc(self, file, history_dict):
         sum_f = np.zeros(self.features.n_total_features)
-        for _,feature in history_dict.items():
+        for _, feature in history_dict.items():
             for i in feature:
-                sum_f[i]+=1
+                sum_f[i] += 1
         return sum_f
 
-    def normalization_term_and_expected_counts(self,v,extended_history_dict):
+    def normalization_term_and_expected_counts(self, v, extended_history_dict):
         normalization_term = 0
-        expectedCounts = 0
-        for history,features in extended_history_dict.items():
+        expectedCounts = np.zeros(len(v))
+        for history, features in extended_history_dict.items():
             inner_log = 0
-            expectedInnerSum = 0
+            expectedInnerSum = np.zeros(len(v))
+            indexes = set()
             for f in features:
                 exp = 0
                 for i in f:
                     exp += v[i]
                 exponent = np.exp(exp)
                 inner_log += exponent
-                InnerSum = np.zeros(len(v))
                 for i in f:
-                    InnerSum[i]=exponent
-                expectedInnerSum += InnerSum
+                    expectedInnerSum[i] += exponent
+                    indexes.add(i)
+            for i in indexes:
+                expectedCounts[i] += expectedInnerSum[i] / inner_log
             normalization_term += np.log(inner_log)
-            expectedCounts += expectedInnerSum / inner_log
-        return (normalization_term,expectedCounts)
+        return (normalization_term, expectedCounts)
 
-    def likelihood_grad(self,v,file,linear_coef,lamda,tags,history_dict,extended_history_dict):
+    def likelihood_grad(self, v, file, linear_coef, lamda, history_dict, extended_history_dict):
         """
             Calculate max entropy likelihood for an iterative optimization method
             :param v_i: weights vector in iteration i
@@ -96,17 +97,77 @@ class MEMM():
         ## Calculate the terms required for the likelihood and gradient calculations
         linear_term = v.dot(linear_coef)
         start = time.time()
-        normalization_term,expected_counts = self.normalization_term_and_expected_counts(v,extended_history_dict)
+        normalization_term, expected_counts = self.normalization_term_and_expected_counts(v, extended_history_dict)
         end = time.time()
-        print('time=',(end - start)/60)
-        regularization = 0.5*lamda*(v.dot(v))
+        print('time=', (end - start) / 60)
+        regularization = 0.5 * lamda * (v.dot(v))
         empirical_counts = linear_coef
-        regularization_grad = lamda*v
+        regularization_grad = lamda * v
         likelihood = linear_term - normalization_term - regularization
         grad = empirical_counts - expected_counts - regularization_grad
-        print('v=',v.dot(v))
 
         return (-1) * likelihood, (-1) * grad
+
+    def loglinear_model(self, words):
+        loglinear_model_dict = {}
+        words.insert(0, '*')
+        words.insert(0, '*')
+        words.append('STOP')
+        for i, word in enumerate(words[2:-1]):
+            for u in self.tags:
+                for v in self.tags:
+                    current = {}
+                    for c in self.tags:
+                        history = (word, u, v, c, words[i + 3], words[i + 1])
+                        f = self.features.represent_input_with_features(history)
+                        exp = 0
+                        for i in f:
+                            exp += v[i]
+                        current[c] = np.exp(exp)
+                    denominator_sum = sum(list(current.values()))
+                    for c in self.tags:
+                        loglinear_model_dict[(word, u, v, c, words[i + 3], words[i + 1])] = current[c] / denominator_sum
+        return loglinear_model_dict
+
+    def find_max(self,pi , u, v,s_k_2 ,log_linear_model, word):
+        max = 0
+        argmax = s_k_2[0]
+        for t in s_k_2:
+            temp = pi[(t, u)] * log_linear_model[(t, u, v), word]
+            if temp > max:
+                max = temp
+                argmax = t
+        return max, argmax
+
+    def viterbi(self, words, log_linear_model):
+        n = len(words)
+        T = np.zeros(n)
+        pi_array = []
+        bp_array = []
+        pi_array.append({('*', '*'): 1})
+        bp_array.append(0)
+        s_k_1 = s_k_2 = s_k = self.tags
+        for k, word in enumerate(words):
+            k += 1
+            pi = {}
+            bp = {}
+            if k == 0:
+                s_k_1 = ['*']
+                s_k_2 = ['*']
+            elif k == 1:
+                s_k_2 = ['*']
+            for u in s_k_1:
+                for v in s_k:
+                    pi[(u, v)], bp[(u, v)] = self.find_max(pi_array[k - 1], u, v, s_k_2, log_linear_model, word)
+            pi_array.append(pi)
+            bp_array.append(bp)
+        T[n - 1], T[n] = max(pi_array[n], key=pi_array[n].get)
+        for i in reversed(range(n-2)):
+            i=i+1
+            T[i] = bp_array[i+2][(T[i+1],T[i+2])]
+        return T
+
+
 
 class MEMM_features():
 
@@ -279,12 +340,12 @@ class MEMM_features():
                 break
 
         # append features belonging to f103
-        if (pptag,ptag,ctag) in self.f_indexes[103]:
-            features.append(self.f_indexes[103][(pptag,ptag,ctag)])
+        if (pptag, ptag, ctag) in self.f_indexes[103]:
+            features.append(self.f_indexes[103][(pptag, ptag, ctag)])
 
         # append features belonging to f104
-        if (ptag,ctag) in self.f_indexes[104]:
-            features.append(self.f_indexes[104][(ptag,ctag)])
+        if (ptag, ctag) in self.f_indexes[104]:
+            features.append(self.f_indexes[104][(ptag, ctag)])
 
         # append features belonging to f105
         if (ctag) in self.f_indexes[105]:
@@ -304,7 +365,6 @@ suffixes = (('ise', 'VB'), ('ate', 'VB'), ('fy', 'VB'), ('en', 'VB'), ('tion', '
             ('age', 'NN'), ('ery', 'NN'))
 
 suffixes_dict = dict(suffixes)
-
 
 
 
