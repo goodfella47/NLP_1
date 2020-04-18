@@ -1,12 +1,24 @@
 from MEMM import MEMM
+import pickle
 import numpy as np
 from scipy import special
 
 # %%
-file = 'train1.wtag'
+train_file = 'train1.wtag'
+predict_file = 'train1.wtag'
 memm = MEMM()
-memm.fit(file, 5)
+memm.fit(train_file, 5,lamda=0)
+
+weights_path = 'trained_weights_data_1.pkl'
+with open(weights_path, 'rb') as f:
+  optimal_params = pickle.load(f)
+pre_trained_weights = optimal_params
+memm.assign_weights(pre_trained_weights)
+
+memm.predict(predict_file,hide_tags=True)
+
 print(memm.features.n_total_features)
+
 
 
 # %%

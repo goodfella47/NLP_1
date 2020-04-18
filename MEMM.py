@@ -10,7 +10,7 @@ class MEMM():
         self.tags = []
         self.features = MEMM_features()
 
-    def fit(self, file_path, threshold=None):
+    def fit(self, file_path, threshold=None, lamda=1):
         """
             Fits the model on the data, ultimately finds the vector of weights
             :param file_path: full path of the file to read
@@ -22,14 +22,32 @@ class MEMM():
         self.features.get_feature_indices(threshold)
         v0 = np.random.rand(self.features.n_total_features) / 100
         self.tags = list(self.features.f_indexes[105].keys())
-        history_dict, extended_history_dict = self.history_generator(data)
-        linear_coefficient = self.linear_coefficient_calc(data, history_dict)
-        args = (data, linear_coefficient, 1, history_dict, extended_history_dict)
-        optimal_params = fmin_l_bfgs_b(func=self.likelihood_grad, x0=v0, args=args, maxiter=100, iprint=100)
-        self.v = optimal_params[0]
+        # history_dict, extended_history_dict = self.history_generator(data)
+        # linear_coefficient = self.linear_coefficient_calc(history_dict)
+        # args = (linear_coefficient, lamda, extended_history_dict)
+        # optimal_params = fmin_l_bfgs_b(func=self.likelihood_grad, x0=v0, args=args, maxiter=500, iprint=100)
+        # self.v = optimal_params[0]
 
-    def predict(self, file_path):
-        assert (self.v)
+    def predict(self, file_path, hide_tags=False):
+        assert (any(self.v))
+        with open(file_path) as file:
+            for line in file:
+                words = line.split(' ')
+                del words[-1]
+                if hide_tags:
+                    splitted_words = [word.split('_')[0] for word in words]
+                    tags = [word.split('_')[1] for word in words]
+                corrected_words = splitted_words.copy()
+                corrected_words.insert(0, '*')
+                corrected_words.insert(0, '*')
+                corrected_words.append('STOP')
+                loglinear_model = self.loglinear_model(corrected_words)
+                T = self.viterbi(corrected_words, loglinear_model)
+                print(T)
+                print(tags)
+
+    def assign_weights(self, v):
+        self.v = v.copy()
 
     def history_generator(self, file):
         history_dict = {}
@@ -57,7 +75,7 @@ class MEMM():
                     extended_history_dict[history] = extended_history
         return history_dict, extended_history_dict
 
-    def linear_coefficient_calc(self, file, history_dict):
+    def linear_coefficient_calc(self, history_dict):
         sum_f = np.zeros(self.features.n_total_features)
         for _, feature in history_dict.items():
             for i in feature:
@@ -72,20 +90,20 @@ class MEMM():
             expectedInnerSum = np.zeros(len(v))
             indexes = set()
             for f in features:
-                exp = 0
+                vdotf = 0
                 for i in f:
-                    exp += v[i]
-                exponent = np.exp(exp)
-                inner_log += exponent
+                    vdotf += v[i]
+                exp_vdotf = np.exp(vdotf)
+                inner_log += exp_vdotf
                 for i in f:
-                    expectedInnerSum[i] += exponent
+                    expectedInnerSum[i] += exp_vdotf
                     indexes.add(i)
             for i in indexes:
                 expectedCounts[i] += expectedInnerSum[i] / inner_log
             normalization_term += np.log(inner_log)
         return (normalization_term, expectedCounts)
 
-    def likelihood_grad(self, v, file, linear_coef, lamda, history_dict, extended_history_dict):
+    def likelihood_grad(self, v, linear_coef, lamda, extended_history_dict):
         """
             Calculate max entropy likelihood for an iterative optimization method
             :param v_i: weights vector in iteration i
@@ -110,9 +128,6 @@ class MEMM():
 
     def loglinear_model(self, words):
         loglinear_model_dict = {}
-        words.insert(0, '*')
-        words.insert(0, '*')
-        words.append('STOP')
         for i, word in enumerate(words[2:-1]):
             for u in self.tags:
                 for v in self.tags:
@@ -121,52 +136,54 @@ class MEMM():
                         history = (word, u, v, c, words[i + 3], words[i + 1])
                         f = self.features.represent_input_with_features(history)
                         exp = 0
-                        for i in f:
-                            exp += v[i]
+                        for j in f:
+                            exp += self.v[j]
                         current[c] = np.exp(exp)
                     denominator_sum = sum(list(current.values()))
                     for c in self.tags:
                         loglinear_model_dict[(word, u, v, c, words[i + 3], words[i + 1])] = current[c] / denominator_sum
         return loglinear_model_dict
 
-    def find_max(self,pi , u, v,s_k_2 ,log_linear_model, word):
+    def find_max(self, pi, u, v, Sk_2, log_linear_model, words, k):
         max = 0
-        argmax = s_k_2[0]
-        for t in s_k_2:
-            temp = pi[(t, u)] * log_linear_model[(t, u, v), word]
+        argmax = Sk_2[0]
+        for t in Sk_2:
+            temp = pi[(t, u)] * log_linear_model[(words[k + 2], u, v, t, words[k + 3], words[k + 1])]
             if temp > max:
                 max = temp
                 argmax = t
-        return max, argmax
+        return (max, argmax)
 
     def viterbi(self, words, log_linear_model):
-        n = len(words)
-        T = np.zeros(n)
+        n = len(words) - 3
+        T = ['']*n
         pi_array = []
         bp_array = []
         pi_array.append({('*', '*'): 1})
         bp_array.append(0)
-        s_k_1 = s_k_2 = s_k = self.tags
-        for k, word in enumerate(words):
-            k += 1
+        Sk = self.tags
+        for k, word in enumerate(words[2:-1]):
+            k = k + 1
+            Sk_1, Sk_2 = self.find_Sk(k)
             pi = {}
             bp = {}
-            if k == 0:
-                s_k_1 = ['*']
-                s_k_2 = ['*']
-            elif k == 1:
-                s_k_2 = ['*']
-            for u in s_k_1:
-                for v in s_k:
-                    pi[(u, v)], bp[(u, v)] = self.find_max(pi_array[k - 1], u, v, s_k_2, log_linear_model, word)
+            for u in Sk_1:
+                for v in Sk:
+                    pi[(u, v)], bp[(u, v)] = self.find_max(pi_array[k - 1], u, v, Sk_2, log_linear_model, words, k-1)
             pi_array.append(pi)
             bp_array.append(bp)
-        T[n - 1], T[n] = max(pi_array[n], key=pi_array[n].get)
-        for i in reversed(range(n-2)):
-            i=i+1
-            T[i] = bp_array[i+2][(T[i+1],T[i+2])]
+        T[n-2], T[n-1] = max(pi_array[n], key=pi_array[n].get)
+        for i in reversed(range(n - 2)):
+            T[i] = bp_array[i + 3][(T[i + 1], T[i + 2])]
         return T
 
+    def find_Sk(self, k):
+        if k == 1:
+            return (['*'], ['*'])
+        if k == 2:
+            return (self.tags, ['*'])
+        else:
+            return (self.tags, self.tags)
 
 
 class MEMM_features():
@@ -365,6 +382,3 @@ suffixes = (('ise', 'VB'), ('ate', 'VB'), ('fy', 'VB'), ('en', 'VB'), ('tion', '
             ('age', 'NN'), ('ery', 'NN'))
 
 suffixes_dict = dict(suffixes)
-
-
-
