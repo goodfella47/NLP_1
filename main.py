@@ -5,7 +5,7 @@ from scipy import special
 
 # %%
 train_file = 'train1.wtag'
-predict_file = 'train1.wtag'
+predict_file = 'test1.wtag'
 memm = MEMM()
 memm.fit(train_file, 5,lamda=0)
 

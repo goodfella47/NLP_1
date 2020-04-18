@@ -45,6 +45,7 @@ class MEMM():
                 T = self.viterbi(corrected_words, loglinear_model)
                 print(T)
                 print(tags)
+                print('----------------------------------------------------------------------------------------------------')
 
     def assign_weights(self, v):
         self.v = v.copy()
@@ -55,9 +56,9 @@ class MEMM():
         for line in file:
             words = line.split(' ')
             del words[-1]
-            words.insert(0, '_*')
-            words.insert(0, '_*')
-            words.append('_STOP')
+            words.insert(0, '*_*')
+            words.insert(0, '*_*')
+            words.append('STOP_STOP')
             for i, word_idx in enumerate(words[2:-1]):
                 word, ctag = word_idx.split('_')
                 pword, ptag = words[i + 1].split('_')
