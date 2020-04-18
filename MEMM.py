@@ -25,7 +25,7 @@ class MEMM():
         # history_dict, extended_history_dict = self.history_generator(data)
         # linear_coefficient = self.linear_coefficient_calc(history_dict)
         # args = (linear_coefficient, lamda, extended_history_dict)
-        # optimal_params = fmin_l_bfgs_b(func=self.likelihood_grad, x0=v0, args=args, maxiter=500, iprint=100)
+        # optimal_params = fmin_l_bfgs_b(func=self.likelihood_grad, x0=v0, args=args, maxiter=600, iprint=100)
         # self.v = optimal_params[0]
 
     def predict(self, file_path, hide_tags=False):
@@ -149,7 +149,7 @@ class MEMM():
         max = 0
         argmax = Sk_2[0]
         for t in Sk_2:
-            temp = pi[(t, u)] * log_linear_model[(words[k + 2], u, v, t, words[k + 3], words[k + 1])]
+            temp = pi[(t, u)] * log_linear_model[(words[k + 2], t, u, v, words[k + 3], words[k + 1])]
             if temp > max:
                 max = temp
                 argmax = t

@@ -7,9 +7,9 @@ from scipy import special
 train_file = 'train1.wtag'
 predict_file = 'test1.wtag'
 memm = MEMM()
-memm.fit(train_file, 5,lamda=0)
+memm.fit(train_file, 25,lamda=2)
 
-weights_path = 'trained_weights_data_1.pkl'
+weights_path = 'trained_weights_data_2.pkl'
 with open(weights_path, 'rb') as f:
   optimal_params = pickle.load(f)
 pre_trained_weights = optimal_params
