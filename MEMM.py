@@ -22,18 +22,19 @@ class MEMM():
         self.features.get_feature_indices(threshold)
         v0 = np.random.rand(self.features.n_total_features) / 100
         self.tags = list(self.features.f_indexes[105].keys())
-        # history_dict, extended_history_dict = self.history_generator(data)
+        history_dict, extended_history_dict = self.history_generator(data)
         # linear_coefficient = self.linear_coefficient_calc(history_dict)
         # args = (linear_coefficient, lamda, extended_history_dict)
         # optimal_params = fmin_l_bfgs_b(func=self.likelihood_grad, x0=v0, args=args, maxiter=600, iprint=100)
         # self.v = optimal_params[0]
 
     def predict(self, file_path, hide_tags=False):
-        assert (any(self.v))
+        assert (any(self.v),'error, please use fit before predict')
+
         with open(file_path) as file:
             for line in file:
                 words = line.split(' ')
-                del words[-1]
+                #del words[-1]
                 if hide_tags:
                     splitted_words = [word.split('_')[0] for word in words]
                     tags = [word.split('_')[1] for word in words]
