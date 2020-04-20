@@ -2,15 +2,7 @@ import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
 import time
 
-default_features = ('f100', 'f101', 'f102', 'f103', 'f104', 'f105', 'f106', 'f107', 'f201')
-
-prefixes = (
-    're', 'dis', 'over', 'un', 'mis', 'out', 'co', 'sub', 'un', 'im', 'in', 'ir', 'il', 'non', 'de', 'ex', 'pre', 'pro')
-
-suffixes = (
-    'ly', 'ing', 'ise', 'ate', 'fy', 'en', 'tion', 'ity', 'er', 'ness', 'ism', 'ment', 'ant', 'ship', 'age', 'ery',
-    'int',
-    'able', 'al', 'est', 'ful', 'ible', 'ily', 'es', 'ies', 's')
+default_features = ('f100', 'f101', 'f102', 'f103', 'f104', 'f105', 'f106', 'f107', 'f201', 'f202', 'f203')
 
 
 class MEMM():
@@ -90,7 +82,7 @@ class MEMM():
         # filter features by a threshold
         if (self.threshold is not None):
             for i, f_stats in f_statistics.items():
-                f = {k: v for (k, v) in f_stats.items() if v > self.threshold}
+                f = {k: v for (k, v) in f_stats.items() if v >= self.threshold}
                 f_statistics[i] = f
 
         current_length = 0
@@ -292,8 +284,7 @@ class f100(MEMM_feature_class):
 
 
 class f101(MEMM_feature_class):
-    def __init__(self, prefix=prefixes):
-        self.prefixes = prefix
+    def __init__(self):
         super().__init__()
 
     def activate(self, history):
@@ -303,26 +294,24 @@ class f101(MEMM_feature_class):
         stats_dict = {}
         for history in history_generator:
             word, _, _, ctag, _, _ = history
-            for prefix in self.prefixes:
-                if word.lower().startswith(prefix):
-                    if (prefix, ctag) not in stats_dict:
-                        stats_dict[(prefix, ctag)] = 1
-                    else:
-                        stats_dict[(prefix, ctag)] += 1
+            for i in reversed(range(1, 5)):
+                prefix = word[:i].lower()
+                if (prefix, ctag) not in stats_dict:
+                    stats_dict[(prefix, ctag)] = 1
+                else:
+                    stats_dict[(prefix, ctag)] += 1
         self.f_statistics = stats_dict
 
     def assign_feature_vec(self, features, history):
         word, _, _, ctag, _, _ = history
-        for prefix in reversed(range(2, 5)):
-            prefix = word[:prefix].lower()
+        for i in reversed(range(1, 5)):
+            prefix = word[:i].lower()
             if (prefix, ctag) in self.indices:
                 features.append(self.indices[(prefix, ctag)])
-                break
 
 
 class f102(MEMM_feature_class):
-    def __init__(self, suffix=suffixes):
-        self.suffixes = suffix
+    def __init__(self):
         super().__init__()
 
     def activate(self, history):
@@ -332,21 +321,20 @@ class f102(MEMM_feature_class):
         stats_dict = {}
         for history in history_generator:
             word, _, _, ctag, _, _ = history
-            for suffix in self.suffixes:
-                if word.lower().startswith(suffix):
-                    if (suffix, ctag) not in stats_dict:
-                        stats_dict[(suffix, ctag)] = 1
-                    else:
-                        stats_dict[(suffix, ctag)] += 1
+            for i in reversed(range(1, 5)):
+                suffix = word[-i:].lower()
+                if (suffix, ctag) not in stats_dict:
+                    stats_dict[(suffix, ctag)] = 1
+                else:
+                    stats_dict[(suffix, ctag)] += 1
         self.f_statistics = stats_dict
 
     def assign_feature_vec(self, features, history):
         word, _, _, ctag, _, _ = history
-        for suffix in reversed(range(2, 5)):
-            suffix = word[:suffix].lower()
+        for i in reversed(range(1, 5)):
+            suffix = word[-i:].lower()
             if (suffix, ctag) in self.indices:
                 features.append(self.indices[(suffix, ctag)])
-                break
 
 
 class f103(MEMM_feature_class):
@@ -464,7 +452,6 @@ class f107(MEMM_feature_class):
             features.append(self.indices[(nword, ctag)])
 
 
-# f2** class of features by Robert and Ofri
 class f201(MEMM_feature_class):
     def __init__(self):
         super().__init__()
@@ -473,17 +460,20 @@ class f201(MEMM_feature_class):
         self.get_stats(history)
 
     def get_stats(self, history_generator):
-        stats_dict = {'Big_Letter': 0}
+        stats_dict = {}
         for history in history_generator:
-            word, _, _, _, _, _ = history
-            if str.isupper(word[0]):
-                stats_dict['Big_Letter'] += 1
+            word, _, _, ctag, _, _ = history
+            if (any(x.isupper() for x in word)):
+                if ('supper', ctag) not in stats_dict:
+                    stats_dict[('supper', ctag)] = 1
+                else:
+                    stats_dict[('supper', ctag)] += 1
         self.f_statistics = stats_dict
 
     def assign_feature_vec(self, features, history):
-        word, _, _, _, _, _ = history
-        if str.isupper(word[0]):
-            features.append(self.indices['Big_Letter'])
+        word, _, _, ctag, _, _ = history
+        if (any(x.isupper() for x in word)) and ('supper', ctag) in self.indices:
+            features.append(self.indices[('supper', ctag)])
 
 
 class f202(MEMM_feature_class):
@@ -494,17 +484,20 @@ class f202(MEMM_feature_class):
         self.get_stats(history)
 
     def get_stats(self, history_generator):
-        stats_dict = {'end_of_sentence': 0}
+        stats_dict = {}
         for history in history_generator:
-            _, _, _, _, nword, _ = history
-            if nword == 'STOP':
-                stats_dict['end_of_sentence'] += 1
+            word, _, _, ctag, _, _ = history
+            if '-' in word:
+                if ('-', ctag) not in stats_dict:
+                    stats_dict[('-', ctag)] = 1
+                else:
+                    stats_dict[('-', ctag)] += 1
         self.f_statistics = stats_dict
 
     def assign_feature_vec(self, features, history):
-        _, _, _, _, nword, _ = history
-        if nword == 'STOP':
-            features.append(self.indices['end_of_sentence'])
+        word, _, _, ctag, _, _ = history
+        if '-' in word and ('-', ctag) in self.indices:
+            features.append(self.indices[('-', ctag)])
 
 
 class f203(MEMM_feature_class):
@@ -515,38 +508,20 @@ class f203(MEMM_feature_class):
         self.get_stats(history)
 
     def get_stats(self, history_generator):
-        stats_dict = {'start_of_sentence': 0}
+        stats_dict = {}
         for history in history_generator:
-            _, pptag, ptag, _, _, _ = history
-            if pptag == '*' and ptag == '*':
-                stats_dict['start_of_sentence'] += 1
+            word, _, _, ctag, _, _ = history
+            if (any(x.isdigit() for x in word)):
+                if ('digit', ctag) not in stats_dict:
+                    stats_dict[('digit', ctag)] = 1
+                else:
+                    stats_dict[('digit', ctag)] += 1
         self.f_statistics = stats_dict
 
     def assign_feature_vec(self, features, history):
-        _, pptag, ptag, _, _, _ = history
-        if pptag == '*' and ptag == '*':
-            features.append(self.indices['start_of_sentence'])
-
-
-class f204(MEMM_feature_class):
-    def __init__(self):
-        super().__init__()
-
-    def activate(self, history):
-        self.get_stats(history)
-
-    def get_stats(self, history_generator):
-        stats_dict = {'2nd_in_sentence': 0}
-        for history in history_generator:
-            _, pptag, ptag, _, _, _ = history
-            if pptag != '*' and ptag == '*':
-                stats_dict['2nd_in_sentence'] += 1
-        self.f_statistics = stats_dict
-
-    def assign_feature_vec(self, features, history):
-        _, pptag, ptag, _, _, _ = history
-        if pptag == '*' and ptag != '*':
-            features.append(self.indices['2nd_in_sentence'])
+        word, _, _, ctag, _, _ = history
+        if (any(x.isdigit() for x in word)) and ('digit', ctag) in self.indices:
+            features.append(self.indices[('digit', ctag)])
 
 
 def history_generator(file_path):
