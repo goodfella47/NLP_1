@@ -6,7 +6,7 @@ from scipy import special
 # %%
 train_file = 'train1.wtag'
 predict_file = 'test1.wtag'
-memm = MEMM(lamda=2,threshold=25)
+memm = MEMM(lamda=2,threshold=5)
 
 
 # weights_path = 'trained_weights_data_3.pkl'
@@ -18,7 +18,7 @@ memm = MEMM(lamda=2,threshold=25)
 
 memm.fit(train_file)
 
-weights_path = 'trained_weights_data_4_threshold10.pkl' # i identifies which dataset this is trained on
+weights_path = 'trained_weights_data_8_threshold5.pkl' # i identifies which dataset this is trained on
 with open(weights_path, 'wb') as f:
     pickle.dump(memm.v, f)
 

@@ -2,14 +2,16 @@ import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
 import time
 
-default_features = ('f100', 'f101', 'f102', 'f103', 'f104', 'f105', 'f201', 'f202', 'f203')
+default_features = ('f100', 'f101', 'f102', 'f103', 'f104', 'f105', 'f106', 'f107', 'f201')
 
 prefixes = (
-'re', 'dis', 'over', 'un', 'mis', 'out', 'co', 'sub', 'un', 'im', 'in', 'ir', 'il', 'non', 'de', 'ex', 'pre', 'pro')
+    're', 'dis', 'over', 'un', 'mis', 'out', 'co', 'sub', 'un', 'im', 'in', 'ir', 'il', 'non', 'de', 'ex', 'pre', 'pro')
 
 suffixes = (
-'ly', 'ing', 'ise', 'ate', 'fy', 'en', 'tion', 'ity', 'er', 'ness', 'ism', 'ment', 'ant', 'ship', 'age', 'ery', 'int',
-'able', 'al', 'est', 'ful', 'ible', 'ily','es','ies','s')
+    'ly', 'ing', 'ise', 'ate', 'fy', 'en', 'tion', 'ity', 'er', 'ness', 'ism', 'ment', 'ant', 'ship', 'age', 'ery',
+    'int',
+    'able', 'al', 'est', 'ful', 'ible', 'ily', 'es', 'ies', 's')
+
 
 class MEMM():
 
@@ -40,7 +42,7 @@ class MEMM():
         self.v = weights
 
     def predict(self, file_path, hide_tags=True):
-        assert (any(self.v),'error, please use fit before predict')
+        assert (any(self.v))
         num_of_predicted_words = 0
         num_falsely_predicted_words = 0
         with open(file_path) as file:
@@ -58,8 +60,8 @@ class MEMM():
                 T = self.viterbi(corrected_words, loglinear_model)
                 print(T)
                 print(tags)
-                num_falsely_predicted_words += list_difference(T,tags)
-                print(num_falsely_predicted_words/num_of_predicted_words)
+                num_falsely_predicted_words += list_difference(T, tags)
+                print(num_falsely_predicted_words / num_of_predicted_words)
                 print('-----------------------------------------------------------------------------------------------')
 
     def get_tags(self, file_path):
@@ -426,17 +428,40 @@ class f106(MEMM_feature_class):
     def get_stats(self, history_generator):
         stats_dict = {}
         for history in history_generator:
-            _, _, _, ctag, _, _ = history
-            if (ctag) not in stats_dict:
-                stats_dict[(ctag)] = 1
+            _, _, _, ctag, _, pword = history
+            if (pword, ctag) not in stats_dict:
+                stats_dict[(pword, ctag)] = 1
             else:
-                stats_dict[(ctag)] += 1
+                stats_dict[(pword, ctag)] += 1
         self.f_statistics = stats_dict
 
     def assign_feature_vec(self, features, history):
-        _, _, _, ctag, _, _ = history
-        if (ctag) in self.indices:
-            features.append(self.indices[(ctag)])
+        _, _, _, ctag, _, pword = history
+        if (pword, ctag) in self.indices:
+            features.append(self.indices[(pword, ctag)])
+
+
+class f107(MEMM_feature_class):
+    def __init__(self):
+        super().__init__()
+
+    def activate(self, history):
+        self.get_stats(history)
+
+    def get_stats(self, history_generator):
+        stats_dict = {}
+        for history in history_generator:
+            _, _, _, ctag, nword, _ = history
+            if (nword, ctag) not in stats_dict:
+                stats_dict[(nword, ctag)] = 1
+            else:
+                stats_dict[(nword, ctag)] += 1
+        self.f_statistics = stats_dict
+
+    def assign_feature_vec(self, features, history):
+        _, _, _, ctag, nword, _ = history
+        if (nword, ctag) in self.indices:
+            features.append(self.indices[(nword, ctag)])
 
 
 # f2** class of features by Robert and Ofri
@@ -566,11 +591,9 @@ def complete_history_with_features(file_path, feature_representation, tags):
     return history_dict, extended_history_dict
 
 
-def list_difference(list1,list2):
-    assert(len(list1)==len(list2))
-    n=0
-    for i,j in zip(list1,list2):
-        if i==j: n+=1
+def list_difference(list1, list2):
+    assert (len(list1) == len(list2))
+    n = 0
+    for i, j in zip(list1, list2):
+        if i == j: n += 1
     return n
-
-
