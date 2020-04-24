@@ -6,7 +6,7 @@ from scipy import special
 # %%
 train_file = 'train1.wtag'
 predict_file = 'test1.wtag'
-memm = MEMM(lamda=2,threshold=10)
+memm = MEMM(lamda=1,threshold=1)
 
 
 # weights_path = 'trained_weights_data_3.pkl'
@@ -18,7 +18,7 @@ memm = MEMM(lamda=2,threshold=10)
 
 memm.fit(train_file)
 
-weights_path = 'trained_weights_data_8_threshold10.pkl' # i identifies which dataset this is trained on
+weights_path = 'trained_weights_data_13_threshold1.pkl' # i identifies which dataset this is trained on
 with open(weights_path, 'wb') as f:
     pickle.dump(memm.v, f)
 
@@ -27,85 +27,4 @@ print(memm.features.n_total_features)
 
 
 
-# %%
 
-
-# inference
-#
-# def find_max(s_k_2, u, v, log_linear_model, word, observation):
-#     max = 0
-#     argmax = s_k_2[0]
-#     for t in s_k_2:
-#         temp = observation[(t, u)][0] * log_linear_model[(t, u, v), word]
-#         if temp > max:
-#             max = temp
-#             argmax = t
-#     return max, argmax
-#
-#
-# def argmax(tupels, log_linear_model):
-#     max = 0
-#     for tuple in tupels:
-#         temp = tupels[tuple]
-#         if temp > max:
-#             max = temp
-#             argmax = tuple
-#     return argmax
-#
-#
-# def max_prob(sentence, log_linear_model):
-#     observations = []
-#     s = []
-#     T = []
-#     for index, word in enumerate(sentence):
-#         d = {}
-#         for v in s[index]:
-#             for u in s[index - 1]:
-#                 d[(u, v)] = find_max(s[index - 2], u, v, log_linear_model, word, observations[index - 1])
-#         observations.append(d)
-#     T[index - 1], T[index] = argmax(observations[index], log_linear_model)
-#     i = len(sentecne) - 3
-#     while i >= 0:
-#         T[i] = observations[i + 2][(T[i + 1], T[i + 2])]
-#         i = i - 1
-#     return T
-#
-#
-#
-# def find_max2(s_k_2, u, v, log_linear_model, word, observation):
-#     max = 0
-#     argmax = s_k_2[0]
-#     for t in s_k_2:
-#         temp = observation[(t, u)][0] * log_linear_model[(t, u, v), word]
-#         if temp > max:
-#             max = temp
-#             argmax = t
-#     return max, argmax
-#
-# def loglinear_model(sentence,tags):
-#     for word in sentence:
-#         for u in tags:
-#             for v in tags:
-#                 f =
-#
-#
-# def viterbi(sentence, log_linear_model, taggs):
-#     pi_array = []
-#     bp_array = []
-#     pi_array.append({('*', '*'): 1})
-#     bp_array.append(0)
-#     s_k_1 = s_k_2 = s_k = taggs
-#     for k, word in enumerate(sentence):
-#         k += 1
-#         pi = {}
-#         bp = {}
-#         if k == 0:
-#             s_k_1 = ['*']
-#             s_k_2 = ['*']
-#         elif k == 1:
-#             s_k_2 = ['*']
-#         for u in s_k_1:
-#             for v in s_k:
-#                 pi[(u, v)], bp[(u, v)] = find_max(pi_array[k - 1], u, v, s_k_2, log_linear_model, word)
-#         pi_array.append(pi)
-#         bp_array.append(bp)

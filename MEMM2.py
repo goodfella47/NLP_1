@@ -2,7 +2,9 @@ import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
 import time
 
-default_features = ('f100', 'f101', 'f102', 'f103', 'f104', 'f105', 'f106', 'f107', 'f201', 'f202', 'f203')
+default_features = (
+'f100', 'f101', 'f102', 'f103', 'f104', 'f105', 'f106', 'f107', 'f201', 'f202', 'f203', 'f204', 'f205', 'f206', 'f207',
+'f208', 'f209', 'f210')
 
 
 class MEMM():
@@ -150,7 +152,6 @@ class MEMM():
             Calculate max entropy likelihood for an iterative optimization method
             :param v_i: weights vector in iteration i
             :param arg_i: arguments passed to this function, such as lambda hyperparameter for regularization
-
                 The function returns the Max Entropy likelihood (objective) and the objective gradient
         """
 
@@ -294,7 +295,7 @@ class f101(MEMM_feature_class):
         stats_dict = {}
         for history in history_generator:
             word, _, _, ctag, _, _ = history
-            for i in reversed(range(1, 5)):
+            for i in reversed(range(1, min(10, len(word) + 1))):
                 prefix = word[:i].lower()
                 if (prefix, ctag) not in stats_dict:
                     stats_dict[(prefix, ctag)] = 1
@@ -304,7 +305,7 @@ class f101(MEMM_feature_class):
 
     def assign_feature_vec(self, features, history):
         word, _, _, ctag, _, _ = history
-        for i in reversed(range(1, 5)):
+        for i in reversed(range(1, min(10, len(word) + 1))):
             prefix = word[:i].lower()
             if (prefix, ctag) in self.indices:
                 features.append(self.indices[(prefix, ctag)])
@@ -321,7 +322,7 @@ class f102(MEMM_feature_class):
         stats_dict = {}
         for history in history_generator:
             word, _, _, ctag, _, _ = history
-            for i in reversed(range(1, 5)):
+            for i in reversed(range(1, min(10, len(word) + 1))):
                 suffix = word[-i:].lower()
                 if (suffix, ctag) not in stats_dict:
                     stats_dict[(suffix, ctag)] = 1
@@ -331,7 +332,7 @@ class f102(MEMM_feature_class):
 
     def assign_feature_vec(self, features, history):
         word, _, _, ctag, _, _ = history
-        for i in reversed(range(1, 5)):
+        for i in reversed(range(1, min(10, len(word) + 1))):
             suffix = word[-i:].lower()
             if (suffix, ctag) in self.indices:
                 features.append(self.indices[(suffix, ctag)])
@@ -524,6 +525,174 @@ class f203(MEMM_feature_class):
             features.append(self.indices[('digit', ctag)])
 
 
+class f204(MEMM_feature_class):
+    def __init__(self):
+        super().__init__()
+
+    def activate(self, history):
+        self.get_stats(history)
+
+    def get_stats(self, history_generator):
+        stats_dict = {}
+        for history in history_generator:
+            word, _, ptag, ctag, _, _ = history
+            if (word, ptag, ctag) not in stats_dict:
+                stats_dict[(word, ptag, ctag)] = 1
+            else:
+                stats_dict[(word, ptag, ctag)] += 1
+        self.f_statistics = stats_dict
+
+    def assign_feature_vec(self, features, history):
+        word, _, ptag, ctag, _, _ = history
+        if (word, ptag, ctag) in self.indices:
+            features.append(self.indices[(word, ptag, ctag)])
+
+
+class f205(MEMM_feature_class):
+    def __init__(self):
+        super().__init__()
+
+    def activate(self, history):
+        self.get_stats(history)
+
+    def get_stats(self, history_generator):
+        stats_dict = {}
+        for history in history_generator:
+            word, _, _, ctag, _, pword = history
+            if (word, pword, ctag) not in stats_dict:
+                stats_dict[(word, pword, ctag)] = 1
+            else:
+                stats_dict[(word, pword, ctag)] += 1
+        self.f_statistics = stats_dict
+
+    def assign_feature_vec(self, features, history):
+        word, _, _, ctag, _, pword = history
+        if (word, pword, ctag) in self.indices:
+            features.append(self.indices[(word, pword, ctag)])
+
+
+class f206(MEMM_feature_class):
+    def __init__(self):
+        super().__init__()
+
+    def activate(self, history):
+        self.get_stats(history)
+
+    def get_stats(self, history_generator):
+        stats_dict = {}
+        for history in history_generator:
+            word, _, _, ctag, nword, _ = history
+            if (word, nword, ctag) not in stats_dict:
+                stats_dict[(word, nword, ctag)] = 1
+            else:
+                stats_dict[(word, nword, ctag)] += 1
+        self.f_statistics = stats_dict
+
+    def assign_feature_vec(self, features, history):
+        word, _, _, ctag, nword, _ = history
+        if (word, nword, ctag) in self.indices:
+            features.append(self.indices[(word, nword, ctag)])
+
+
+class f207(MEMM_feature_class):
+    def __init__(self):
+        super().__init__()
+
+    def activate(self, history):
+        self.get_stats(history)
+
+    def get_stats(self, history_generator):
+        stats_dict = {}
+        for history in history_generator:
+            word, _, _, ctag, _, _ = history
+            if (word.isupper()):
+                if ('allUpper', ctag) not in stats_dict:
+                    stats_dict[('allUpper', ctag)] = 1
+                else:
+                    stats_dict[('allUpper', ctag)] += 1
+        self.f_statistics = stats_dict
+
+    def assign_feature_vec(self, features, history):
+        word, _, _, ctag, _, _ = history
+        if (word.isupper()) and ('allUpper', ctag) in self.indices:
+            features.append(self.indices[('allUpper', ctag)])
+
+
+class f208(MEMM_feature_class):
+    def __init__(self):
+        super().__init__()
+
+    def activate(self, history):
+        self.get_stats(history)
+
+    def get_stats(self, history_generator):
+        stats_dict = {}
+        for history in history_generator:
+            word, _, _, ctag, _, _ = history
+            transWord = word_shape_transformer(word)
+            if (transWord, ctag) not in stats_dict:
+                stats_dict[(transWord, ctag)] = 1
+            else:
+                stats_dict[(transWord, ctag)] += 1
+        self.f_statistics = stats_dict
+
+    def assign_feature_vec(self, features, history):
+        word, _, _, ctag, _, _ = history
+        transWord = word_shape_transformer(word)
+        if (transWord, ctag) in self.indices:
+            features.append(self.indices[(transWord, ctag)])
+
+
+class f209(MEMM_feature_class):
+    def __init__(self):
+        super().__init__()
+
+    def activate(self, history):
+        self.get_stats(history)
+
+    def get_stats(self, history_generator):
+        stats_dict = {}
+        for history in history_generator:
+            _, _, _, ctag, _, pword = history
+            transWord = word_shape_transformer(pword)
+            if (transWord, ctag) not in stats_dict:
+                stats_dict[(transWord, ctag)] = 1
+            else:
+                stats_dict[(transWord, ctag)] += 1
+        self.f_statistics = stats_dict
+
+    def assign_feature_vec(self, features, history):
+        word, _, _, ctag, _, pword = history
+        transWord = word_shape_transformer(pword)
+        if (transWord, ctag) in self.indices:
+            features.append(self.indices[(transWord, ctag)])
+
+
+class f210(MEMM_feature_class):
+    def __init__(self):
+        super().__init__()
+
+    def activate(self, history):
+        self.get_stats(history)
+
+    def get_stats(self, history_generator):
+        stats_dict = {}
+        for history in history_generator:
+            _, _, _, ctag, nword, _ = history
+            transWord = word_shape_transformer(nword)
+            if (transWord, ctag) not in stats_dict:
+                stats_dict[(transWord, ctag)] = 1
+            else:
+                stats_dict[(transWord, ctag)] += 1
+        self.f_statistics = stats_dict
+
+    def assign_feature_vec(self, features, history):
+        _, _, _, ctag, nword, _ = history
+        transWord = word_shape_transformer(nword)
+        if (transWord, ctag) in self.indices:
+            features.append(self.indices[(transWord, ctag)])
+
+
 def history_generator(file_path):
     with open(file_path) as f:
         for line in f:
@@ -572,3 +741,17 @@ def list_difference(list1, list2):
     for i, j in zip(list1, list2):
         if i == j: n += 1
     return n
+
+
+def word_shape_transformer(word):
+    transWord = ''
+    for char in word:
+        if char.isupper():
+            transWord += 'X'
+        elif char.isalpha():
+            transWord += 'x'
+        elif char.isdigit():
+            transWord += 'd'
+        else:
+            transWord += char
+    return transWord
