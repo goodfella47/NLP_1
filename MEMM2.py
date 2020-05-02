@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
+import pandas as pd
+import matplotlib.pyplot as plt
 import time
 
 default_features = (
@@ -32,31 +34,40 @@ class MEMM():
         """
         self.get_tags(file_path)
         self.activate_features_on_data(file_path)
-        weights = self.find_vector_of_weights(file_path)
-        self.v = weights
+        # weights = self.find_vector_of_weights(file_path)
+        # self.v = weights
 
     def predict(self, file_path, hide_tags=True):
         assert (any(self.v))
         num_of_predicted_words = 0
         num_falsely_predicted_words = 0
-        with open(file_path) as file:
-            for line in file:
-                words = line.rstrip('\n').split(' ')
-                num_of_predicted_words += len(words)
-                if hide_tags:
-                    splitted_words = [word.split('_')[0] for word in words]
-                    tags = [word.split('_')[1] for word in words]
-                corrected_words = splitted_words.copy()
-                corrected_words.insert(0, '*')
-                corrected_words.insert(0, '*')
-                corrected_words.append('STOP')
-                loglinear_model = self.loglinear_model(corrected_words)
-                T = self.viterbi(corrected_words, loglinear_model)
-                print(T)
-                print(tags)
-                num_falsely_predicted_words += list_difference(T, tags)
-                print(num_falsely_predicted_words / num_of_predicted_words)
-                print('-----------------------------------------------------------------------------------------------')
+        confusion_matrix = pd.DataFrame(0,columns = self.tags_with, index=self.tags_with)
+        with open('predicted.wtag','w+') as predict_file:
+            with open(file_path) as file: # iterates over all sentences and predicts tags
+                for line in file:
+                    words = line.rstrip('\n').split(' ')
+                    num_of_predicted_words += len(words)
+                    if hide_tags:
+                        splitted_words = [word.split('_')[0] for word in words]
+                        real_tags = [word.split('_')[1] for word in words]
+                    corrected_words = splitted_words.copy()
+                    corrected_words.insert(0, '*')
+                    corrected_words.insert(0, '*')
+                    corrected_words.append('STOP')
+                    predicted_tags = self.viterbi(corrected_words)
+                    for rtag,ptag in zip(real_tags,predicted_tags):
+                        confusion_matrix_updater(confusion_matrix,rtag,ptag)
+                    num_falsely_predicted_words += list_difference(predicted_tags, real_tags)
+                    accuracy = num_falsely_predicted_words / num_of_predicted_words
+                    predicted_word_tag_pairs = [word+'_'+tag for word,tag in zip(splitted_words,predicted_tags)]
+                    to_write = ' '.join(predicted_word_tag_pairs)
+                    predict_file.write(to_write+'\n')
+                    print(accuracy)
+                    print('-----------------------------------------------------------------------------------------------')
+        print('accuracy =',accuracy)
+        confusion_matrix = confusion_matrix_select_top10(confusion_matrix, self.tags_with)
+        plot_confusion_matrix(confusion_matrix)
+
 
     def get_tags(self, file_path):
         tags = set()
@@ -176,35 +187,32 @@ class MEMM():
     def assign_weights(self, v):
         self.v = v.copy()
 
-    def loglinear_model(self, words):
-        loglinear_model_dict = {}
-        for i, word in enumerate(words[2:-1]):
-            for u in self.tags_with:
-                for v in self.tags_with:
-                    current = {}
-                    for c in self.tags_with:
-                        history = (word, u, v, c, words[i + 3], words[i + 1])
-                        f = self.history_representation_with_features(history)
-                        exp = 0
-                        for j in f:
-                            exp += self.v[j]
-                        current[c] = np.exp(exp)
-                    denominator_sum = sum(list(current.values()))
-                    for c in self.tags_with:
-                        loglinear_model_dict[(word, u, v, c, words[i + 3], words[i + 1])] = current[c] / denominator_sum
-        return loglinear_model_dict
+    def loglinear_calc(self, history):
+        word, pptag, ptag, ctag, nword, pword = history
+        current = {}
+        for ntag in self.tags_with:
+            history_with_ntag = (word, pptag, ptag, ntag, nword, pword)
+            f = self.history_representation_with_features(history_with_ntag)
+            exp = 0
+            for j in f:
+                exp += self.v[j]
+            current[ntag] = np.exp(exp)
+        denominator_sum = sum(list(current.values()))
+        return current[ctag] / denominator_sum
 
-    def find_max(self, pi, u, v, Sk_2, log_linear_model, words, k):
+    def find_max(self, pi, u, v, Sk_2, words, k):
         max = 0
         argmax = Sk_2[0]
         for t in Sk_2:
-            temp = pi[(t, u)] * log_linear_model[(words[k + 2], t, u, v, words[k + 3], words[k + 1])]
-            if temp > max:
-                max = temp
-                argmax = t
+            if (t,u) in pi.keys():
+                history = (words[k + 2], t, u, v, words[k + 3], words[k + 1])
+                temp = pi[(t, u)] * self.loglinear_calc(history)
+                if temp > max:
+                    max = temp
+                    argmax = t
         return (max, argmax)
 
-    def viterbi(self, words, log_linear_model):
+    def viterbi(self, words, beam_width = 1):
         n = len(words) - 3
         T = [''] * n
         pi_array = []
@@ -219,7 +227,9 @@ class MEMM():
             bp = {}
             for u in Sk_1:
                 for v in Sk:
-                    pi[(u, v)], bp[(u, v)] = self.find_max(pi_array[k - 1], u, v, Sk_2, log_linear_model, words, k - 1)
+                    pi[(u, v)], bp[(u, v)] = self.find_max(pi_array[k - 1], u, v, Sk_2, words, k - 1)
+            if(beam_width):
+                pi,bp = filter_by_beam(pi,bp,beam_width)
             pi_array.append(pi)
             bp_array.append(bp)
         T[n - 2], T[n - 1] = max(pi_array[n], key=pi_array[n].get)
@@ -755,3 +765,39 @@ def word_shape_transformer(word):
         else:
             transWord += char
     return transWord
+
+
+def filter_by_beam(pi,bp,beam_width):
+    filtered_pi = {}
+    filtered_bp = {}
+    for _ in range(beam_width):
+        curr_max_key = max(pi, key=pi.get)
+        filtered_pi[curr_max_key] = pi[curr_max_key]
+        filtered_bp[curr_max_key] = bp[curr_max_key]
+        del pi[curr_max_key]
+    return filtered_pi,filtered_bp
+
+
+def confusion_matrix_updater(confusion_matrix,real_tag,predicted_tag):
+        confusion_matrix.loc[real_tag, predicted_tag] += 1
+
+
+def confusion_matrix_select_top10(confusion_matrix,tags):
+    confusion_matrix_errors = confusion_matrix.copy()
+    for tag in tags:
+        confusion_matrix_errors.loc[tag, tag] = 0
+    tags_with_most_errors = list(((confusion_matrix_errors.sum(axis=0)).nlargest(10)).keys())
+    return confusion_matrix.filter(tags_with_most_errors)
+
+
+def plot_confusion_matrix(confusion_matrix):
+    tick_marks = np.arange(len(confusion_matrix.columns))
+    plt.matshow(confusion_matrix, cmap=plt.cm.get_cmap('Greys'))
+    plt.title('Confusion matrix')
+    plt.colorbar()
+    plt.xticks(tick_marks, confusion_matrix.columns)
+    plt.yticks(tick_marks, confusion_matrix.index)
+    plt.ylabel(confusion_matrix.index.name)
+    plt.xlabel(confusion_matrix.columns.name)
+    plt.savefig('fig.png', bbox_inches='tight')
+    plt.show()
