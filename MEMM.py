@@ -1,8 +1,5 @@
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
-import pandas as pd
-import matplotlib.pyplot as plt
-import time
 
 default_features = (
     'f100', 'f101', 'f102', 'f103', 'f104', 'f105', 'f106', 'f107', 'f201', 'f202', 'f203', 'f204', 'f205', 'f206',
@@ -11,14 +8,23 @@ default_features = (
 
 
 class MEMM():
+    """
+        MEMM part of speech tagger implementation
+        Execution example:
 
-    def __init__(self, threshold=None, lamda=1, features=default_features):
-        self.v = None
+        memm = MEMM()
+        memm.fit(train_file_path)
+        memm.predict(predict_file_path)
+
+    """
+
+    def __init__(self, threshold=1, lamda=1, features=default_features):
+        self.v = None  # learned vector of weights
         self.tags = []
         self.tags_with = []  # same as tags but with additional '*' and 'STOP' tags
-        self.lamda = lamda
-        self.threshold = threshold
-        self.features = self.initialize_features(features)
+        self.lamda = lamda  # regularization parameter
+        self.threshold = threshold  # minimum feature frequency
+        self.features = self.initialize_features(features)  # stores all feature objects
         self.n_total_features = 0
         self.accuracy = 0
 
@@ -38,11 +44,19 @@ class MEMM():
         weights = self.find_vector_of_weights(file_path)
         self.v = weights
 
-    def predict(self, file_path, hide_tags=True,beam_width=2,prediction_path='predicted.wtag'):
+    def predict(self, file_path, hide_tags=True, beam_width=2, prediction_path='predicted.wtag'):
+        """
+            This function predicts the tags for each word,
+            given a corpus of sentences and writes the word,tag pairs to a new file
+
+            :param file_path: full path of the file to read
+            :param hide_tags: True if tags are present predict file
+            :param beam_width: Width for beam search
+            :param prediction_path: full path to write the predicted word,tag pairs
+        """
         assert (any(self.v))
-        num_of_predicted_words = 0
-        num_falsely_predicted_words = 0
-        confusion_matrix = pd.DataFrame(0, columns=self.tags_with, index=self.tags_with)
+        num_of_predicted_words = 0  # accuracy denominator
+        num_falsely_predicted_words = 0  # accuracy nominator
         first_line = True
         with open(prediction_path, 'w+') as predict_file:
             with open(file_path) as file:  # iterates over all sentences and predicts tags
@@ -62,36 +76,32 @@ class MEMM():
                     corrected_words.insert(0, '*')
                     corrected_words.insert(0, '*')
                     corrected_words.append('STOP')
-                    predicted_tags = self.viterbi(corrected_words,beam_width)
-                    if hide_tags:
-                        for rtag, ptag in zip(real_tags, predicted_tags):
-                            confusion_matrix_updater(confusion_matrix, rtag, ptag)
-                        num_falsely_predicted_words += list_difference(predicted_tags, real_tags)
+                    predicted_tags = self.viterbi(corrected_words, beam_width)
                     accuracy = num_falsely_predicted_words / num_of_predicted_words
                     predicted_word_tag_pairs = [word + '_' + tag for word, tag in zip(splitted_words, predicted_tags)]
                     to_write = ' '.join(predicted_word_tag_pairs)
                     predict_file.write(to_write)
                     print(predicted_word_tag_pairs)
-                    if hide_tags:
-                        print(accuracy)
-                        print('-----------------')
         if hide_tags:
             print('accuracy =', accuracy)
-            confusion_matrix = confusion_matrix_select_top10(confusion_matrix, self.tags_with)
-            plot_confusion_matrix(confusion_matrix)
 
-    def predict_with_predefined_weights(self, train_path, to_predict_path, weights, hide_tags=False, beam_width=None, prediction_path='predicted.wtag'):
+    def predict_with_predefined_weights(self, train_path, to_predict_path, weights, hide_tags=False, beam_width=None,
+                                        prediction_path='predicted.wtag'):
         """
-            Fits the model on the data
-            :param file_path: full path of the file to read
+            This function is same as predict, assigns learned weights with pkl file prior to the prediction procedure
+            :param: same as predict
         """
         self.get_tags(train_path)
         self.activate_features_on_data(train_path)
         self.assign_weights(weights)
-        self.predict(file_path=to_predict_path, hide_tags=hide_tags, beam_width = beam_width, prediction_path = prediction_path)
-
+        self.predict(file_path=to_predict_path, hide_tags=hide_tags, beam_width=beam_width,
+                     prediction_path=prediction_path)
 
     def get_tags(self, file_path):
+        """
+            This function iterates over the corpus words and extracts the tags to self.tags
+            :param file_path: full path of the file to read
+        """
         tags = set()
         history_iter = history_generator(file_path)
         for _, _, _, ctag, _, _ in history_iter:
@@ -103,13 +113,20 @@ class MEMM():
         self.tags_with = list(tags_with)
 
     def activate_features_on_data(self, file_path):
+        """
+            This function gets statistics such as feature count from the features
+            :param file_path: full path of the file to read
+        """
         for f in self.features.values():
             history_iter = history_generator(file_path)
             f.activate(history_iter)
         self.assign_feature_vector_indices()
 
     def assign_feature_vector_indices(self):
-
+        """
+            This function filters the features with frequency less than self.threshold
+            and assigns unique id to every feature
+        """
         f_statistics = {}
         for f_name, f in self.features.items():
             f_statistics[f_name] = f.f_statistics
@@ -119,7 +136,7 @@ class MEMM():
             for i, f_stats in f_statistics.items():
                 f = {k: v for (k, v) in f_stats.items() if v >= self.threshold}
                 f_statistics[i] = f
-
+        # assign unique id to features
         current_length = 0
         for i, f_index in f_statistics.items():
             f_index_dict = dict.fromkeys(f_index.keys(), 0)
@@ -130,6 +147,10 @@ class MEMM():
         self.n_total_features = current_length + 1
 
     def find_vector_of_weights(self, file_path):
+        """
+            This function iterates over the corpus words and extracts the tags to self.tags
+            :param file_path: full path of the file to read
+        """
         v0 = np.random.rand(self.n_total_features) / 100
         history_dict, extended_history_dict = complete_history_with_features(file_path,
                                                                              self.history_representation_with_features,
@@ -160,6 +181,12 @@ class MEMM():
         return features
 
     def normalization_term_and_expected_counts(self, v, extended_history_dict):
+        """
+            This function calculates normalization term and expected counts for likelihood gradient function
+            :param v: vector of weights for the current iteration
+            :param extended_history_dict: history with (history:feature_vector) pairs
+                Return numeric:normalization term and numeric:expected counts
+        """
         normalization_term = 0
         expectedCounts = np.zeros(len(v))
         for history, features in extended_history_dict.items():
@@ -190,10 +217,7 @@ class MEMM():
 
         ## Calculate the terms required for the likelihood and gradient calculations
         linear_term = v.dot(linear_coef)
-        start = time.time()
         normalization_term, expected_counts = self.normalization_term_and_expected_counts(v, extended_history_dict)
-        end = time.time()
-        print('time=', (end - start) / 60)
         regularization = 0.5 * lamda * (v.dot(v))
         empirical_counts = linear_coef
         regularization_grad = lamda * v
@@ -202,14 +226,26 @@ class MEMM():
         return (-1) * likelihood, (-1) * grad
 
     def activate_features(self, features_in_str):
+        """
+             This function assigns the class of features MEMM will use for training
+             :param features_in_str: list of strings, each string represent a feature class
+         """
         features_group = []
         for f in features_in_str:
             features_group.append(eval(f + '()'))
 
     def assign_weights(self, v):
+        """
+             This function assigns vector of weights to the class from an external source
+             :param v: vector of weights
+         """
         self.v = v.copy()
 
     def loglinear_calc(self, history):
+        """
+             This is the q function of the Viterbi algorithm
+             :param history: history representation of word in sentence
+         """
         word, pptag, ptag, ctag, nword, pword = history
         current = {}
         for ntag in self.tags_with:
@@ -223,6 +259,9 @@ class MEMM():
         return current[ctag] / denominator_sum
 
     def find_max(self, pi, u, v, Sk_2, words, k):
+        """
+             Helper function for the Viterbi algorithm
+         """
         max = 0
         argmax = Sk_2[0]
         for t in Sk_2:
@@ -234,7 +273,13 @@ class MEMM():
                     argmax = t
         return (max, argmax)
 
-    def viterbi(self, words,beam_width):
+    def viterbi(self, words, beam_width):
+        """
+             The Viterbi algorithm
+             :param words: list of words of current sentence
+             :param beam_width: integer for beam search
+                The function returns a list of predicted tags for the sentence
+         """
         n = len(words) - 3
         T = [''] * n
         pi_array = []
@@ -268,22 +313,26 @@ class MEMM():
             return (self.tags, self.tags)
 
 
-# f1** class of features for MEMM by
-
+# feature classes for MEMM
 class MEMM_feature_class():
+    # superclass of feature classes
+
     def __init__(self):
         self.num_of_features = 0
         self.statistics = {}
         self.indices = {}
 
     def activate(self, history):
+        """
+            This function calls for the first functions to execute upon initializing a feature.
+            :param history: generator of history word representation of every word in the corpus
+        """
         pass
 
     def get_stats(selfs, history):
         """
-            Extract out of text all word/tag pairs
-            :param file: history generator
-                return all word/tag pairs with index of appearance
+            This function calculates the frequency of every feature in the corpus file
+            :param file: generator of history word representation of every word in the corpus
         """
         pass
 
@@ -292,6 +341,10 @@ class MEMM_feature_class():
 
 
 class f100(MEMM_feature_class):
+    """
+        <current word,current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -317,6 +370,10 @@ class f100(MEMM_feature_class):
 
 
 class f101(MEMM_feature_class):
+    """
+        <prefix,current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -344,6 +401,10 @@ class f101(MEMM_feature_class):
 
 
 class f102(MEMM_feature_class):
+    """
+        <suffix,current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -371,6 +432,10 @@ class f102(MEMM_feature_class):
 
 
 class f103(MEMM_feature_class):
+    """
+        <previous previous tag, previous tag, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -394,6 +459,10 @@ class f103(MEMM_feature_class):
 
 
 class f104(MEMM_feature_class):
+    """
+        <previous tag, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -417,6 +486,10 @@ class f104(MEMM_feature_class):
 
 
 class f105(MEMM_feature_class):
+    """
+        <current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -440,6 +513,10 @@ class f105(MEMM_feature_class):
 
 
 class f106(MEMM_feature_class):
+    """
+        <previous word, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -463,6 +540,10 @@ class f106(MEMM_feature_class):
 
 
 class f107(MEMM_feature_class):
+    """
+        <next word, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -486,6 +567,10 @@ class f107(MEMM_feature_class):
 
 
 class f201(MEMM_feature_class):
+    """
+        <is there an upper case in current word, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -510,6 +595,10 @@ class f201(MEMM_feature_class):
 
 
 class f202(MEMM_feature_class):
+    """
+        <is there a hyphen in current word, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -534,6 +623,10 @@ class f202(MEMM_feature_class):
 
 
 class f203(MEMM_feature_class):
+    """
+        <is there a digit in current word, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -558,6 +651,10 @@ class f203(MEMM_feature_class):
 
 
 class f204(MEMM_feature_class):
+    """
+        <word, previous tag, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -581,6 +678,10 @@ class f204(MEMM_feature_class):
 
 
 class f205(MEMM_feature_class):
+    """
+        <word, previous tag, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -604,6 +705,10 @@ class f205(MEMM_feature_class):
 
 
 class f206(MEMM_feature_class):
+    """
+        <word, next word, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -627,6 +732,10 @@ class f206(MEMM_feature_class):
 
 
 class f207(MEMM_feature_class):
+    """
+        <are all letters uppercase in current word, current tag> feature representation
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -651,6 +760,11 @@ class f207(MEMM_feature_class):
 
 
 class f208(MEMM_feature_class):
+    """
+        <XXxx_dd current word representation, current tag> feature representation
+        where X is an uppercase letter, x is a lowercase letter, _ is _ and d is a digit
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -676,6 +790,11 @@ class f208(MEMM_feature_class):
 
 
 class f209(MEMM_feature_class):
+    """
+        <XXxx_dd previous word representation, current tag> feature representation
+        where X is an uppercase letter, x is a lowercase letter, _ is _ and d is a digit
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -701,6 +820,11 @@ class f209(MEMM_feature_class):
 
 
 class f210(MEMM_feature_class):
+    """
+        <XXxx_dd next word representation, current tag> feature representation
+        where X is an uppercase letter, x is a lowercase letter, _ is _ and d is a digit
+    """
+
     def __init__(self):
         super().__init__()
 
@@ -726,6 +850,11 @@ class f210(MEMM_feature_class):
 
 
 def history_generator(file_path):
+    """
+           This function generates history from every word in the corpus
+           :param file_path: full file path of the corpus
+                returns history generator
+       """
     with open(file_path) as f:
         for line in f:
             words = line.rstrip('\n').split(' ')
@@ -741,6 +870,12 @@ def history_generator(file_path):
 
 
 def complete_history_with_features(file_path, feature_representation, tags):
+    """
+            This function creates dictinary of <history word representation, feature vector of current history>
+            :param file_path: full file path of the corpus
+            :param feature_representation: function that gets history and outputs the feature representing it
+            :param tags: list of every tag presented in the corpus
+    """
     history_dict = {}
     extended_history_dict = {}
     with open(file_path) as f:
@@ -798,28 +933,3 @@ def filter_by_beam(pi, bp, beam_width):
         filtered_bp[curr_max_key] = bp[curr_max_key]
         del pi[curr_max_key]
     return filtered_pi, filtered_bp
-
-
-def confusion_matrix_updater(confusion_matrix, real_tag, predicted_tag):
-    confusion_matrix.loc[real_tag, predicted_tag] += 1
-
-
-def confusion_matrix_select_top10(confusion_matrix, tags):
-    confusion_matrix_errors = confusion_matrix.copy()
-    for tag in tags:
-        confusion_matrix_errors.loc[tag, tag] = 0
-    tags_with_most_errors = list(((confusion_matrix_errors.sum(axis=0)).nlargest(10)).keys())
-    return confusion_matrix.filter(tags_with_most_errors)
-
-
-def plot_confusion_matrix(confusion_matrix):
-    tick_marks_x = np.arange(len(confusion_matrix.columns))
-    tick_marks_y = np.arange(len(confusion_matrix.index))
-    plt.matshow(confusion_matrix, cmap=plt.cm.get_cmap('inferno'))
-    plt.title('Confusion matrix')
-    plt.colorbar()
-    plt.xticks(tick_marks_x, confusion_matrix.columns)
-    plt.yticks(tick_marks_y, confusion_matrix.index)
-    plt.ylabel(confusion_matrix.index.name)
-    plt.xlabel(confusion_matrix.columns.name)
-    plt.savefig('fig.png', bbox_inches='tight')
